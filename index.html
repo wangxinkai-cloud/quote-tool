@@ -306,10 +306,24 @@ function fmtPct(value, digits = 2) {
   return (value * 100).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }) + "%";
 }
 
+function normalizeNumberString(raw) {
+  const hasComma = raw.includes(",");
+  const hasDot = raw.includes(".");
+  if (hasComma && hasDot) {
+    // 同时出现时，以最后出现的符号作为小数点，另一个当千位分隔符去掉
+    if (raw.lastIndexOf(",") > raw.lastIndexOf(".")) {
+      return raw.replace(/\./g, "").replace(",", ".");
+    }
+    return raw.replace(/,/g, "");
+  }
+  if (hasComma) return raw.replace(",", ".");
+  return raw;
+}
+
 function parseDecimal(id, label) {
   const raw = document.getElementById(id).value.trim();
   if (raw === "") throw new Error(`${label}不能为空`);
-  const v = Number(raw);
+  const v = Number(normalizeNumberString(raw));
   if (!isFinite(v)) throw new Error(`${label}输入格式不正确：${raw}`);
   return v;
 }
@@ -318,7 +332,7 @@ function parsePercent(id, label) {
   const raw = document.getElementById(id).value.trim();
   if (raw === "") throw new Error(`${label}不能为空`);
   const hasPercentSign = raw.endsWith("%");
-  const cleaned = raw.replace(/%$/, "").trim();
+  const cleaned = normalizeNumberString(raw.replace(/%$/, "").trim());
   const v = Number(cleaned);
   if (!isFinite(v)) throw new Error(`${label}输入格式不正确：${raw}`);
   if (hasPercentSign || v > 1) return v / 100;
