@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>组件报价成本测算工具</title>
+<style>
+  :root {
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    background: #f2f2f7;
+    color: #1c1c1e;
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 16px;
+    text-align: center;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 10px;
+    border-left: 4px solid #007aff;
+    padding-left: 8px;
+  }
+  .price-card {
+    border: 2px solid #ff3b30;
+    background: #fff5f5;
+  }
+  .price-card .card-title {
+    color: #ff3b30;
+    border-left-color: #ff3b30;
+  }
+  .price-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #ff3b30;
+    text-align: center;
+    padding: 8px 0 4px;
+  }
+  .price-unit {
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .field {
+    margin-bottom: 10px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  input[type=text], input[type=number], select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #d1d1d6;
+    border-radius: 8px;
+    background: #fff;
+  }
+  input[readonly] {
+    background: #f2f2f7;
+    color: #333;
+  }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0 12px;
+  }
+  @media (min-width: 640px) {
+    .grid2 { grid-template-columns: 1fr 1fr; }
+  }
+  .rate-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .rate-row .field { flex: 1; margin-bottom: 0; }
+  button {
+    font-size: 15px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: #007aff;
+    color: #fff;
+    flex: 1;
+  }
+  .btn-secondary {
+    background: #e5e5ea;
+    color: #333;
+  }
+  .btn-ghost {
+    background: #eef4ff;
+    color: #007aff;
+    white-space: nowrap;
+  }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  #status {
+    text-align: center;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 14px;
+    min-height: 16px;
+  }
+  #errorBanner {
+    display: none;
+    background: #fff0f0;
+    border: 1px solid #ff3b30;
+    color: #c0392b;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    white-space: pre-line;
+  }
+  .term-desc {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>组件报价成本测算工具（EXW/FCA/FOB/CIF/DDP）</h1>
+
+<div id="errorBanner"></div>
+
+<div class="card">
+  <div class="card-title">输入参数</div>
+  <div class="grid2">
+    <div class="field">
+      <label>型号（W）</label>
+      <input type="text" id="model_w" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>片数（个）</label>
+      <input type="text" id="pieces" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>柜数（个）</label>
+      <input type="text" id="cabinets" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>成本（RMB/W）</label>
+      <input type="text" id="cost_rmb" inputmode="decimal">
+    </div>
+    <div class="field rate-row">
+      <div class="field">
+        <label>汇率（EUR/CNY）</label>
+        <input type="text" id="rate" inputmode="decimal">
+      </div>
+      <button class="btn-ghost" onclick="refreshRate()">刷新实时汇率</button>
+    </div>
+    <div class="field">
+      <label>贸易条款</label>
+      <select id="trade_term" onchange="updateTermDescription()">
+        <option value="">请选择</option>
+        <option value="EXW">EXW</option>
+        <option value="FCA">FCA</option>
+        <option value="FOB">FOB</option>
+        <option value="CIF">CIF</option>
+        <option value="DDP">DDP</option>
+      </select>
+      <div class="term-desc" id="term_desc"></div>
+    </div>
+    <div class="field">
+      <label>目标毛利率（如 0.07 或 7 或 7%）</label>
+      <input type="text" id="target_gross_margin" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>目标净利率（如 0.05 或 5 或 5%）</label>
+      <input type="text" id="target_net_margin" inputmode="decimal">
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">费用参数</div>
+  <div class="grid2">
+    <div class="field">
+      <label>中国端费用/柜（RMB）</label>
+      <input type="text" id="china_export_fee_per_cabinet_rmb" value="15000" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>FOB附加费用/柜（RMB）</label>
+      <input type="text" id="fob_extra_fee_per_cabinet_rmb" value="2000" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>海运费/柜（RMB）</label>
+      <input type="text" id="ocean_freight_per_cabinet_rmb" value="19229.5" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>保险费率</label>
+      <input type="text" id="insurance_rate" value="0.0045" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>目的港基础费用/柜（EUR）</label>
+      <input type="text" id="destination_fee_per_cabinet_eur" value="1400" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>DDP附加费用/柜（EUR）</label>
+      <input type="text" id="ddp_extra_per_cabinet_eur" value="2000" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>资金年利率</label>
+      <input type="text" id="annual_interest_rate" value="0.039" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>资金占用月数</label>
+      <input type="text" id="capital_months" value="4" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>资金占用比例</label>
+      <input type="text" id="capital_ratio" value="0.9" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>公司费用率</label>
+      <input type="text" id="company_expense_rate" value="0.025" inputmode="decimal">
+    </div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn-primary" onclick="calculate()">计算结果</button>
+  <button class="btn-secondary" onclick="clearOutputs()">清空输出</button>
+</div>
+
+<div id="status">准备就绪</div>
+
+<div class="card price-card">
+  <div class="card-title">建议报价单价</div>
+  <div class="price-value" id="unit_price_eur">--</div>
+  <div class="price-unit">EUR / W</div>
+</div>
+
+<div class="card">
+  <div class="card-title">输出结果</div>
+  <div class="grid2">
+    <div class="field"><label>数量（W）</label><input type="text" id="quantity_w" readonly></div>
+    <div class="field"><label>数量（MW）</label><input type="text" id="quantity_MW" readonly></div>
+    <div class="field"><label>外币收入（EUR）</label><input type="text" id="foreign_income_eur" readonly></div>
+    <div class="field"><label>总收入（RMB）</label><input type="text" id="total_income_rmb" readonly></div>
+    <div class="field"><label>总成本（不含税）</label><input type="text" id="total_cost_excl_tax" readonly></div>
+    <div class="field"><label>中国端费用（RMB）</label><input type="text" id="china_export_fee" readonly></div>
+    <div class="field"><label>海运+保险（RMB）</label><input type="text" id="freight_insurance" readonly></div>
+    <div class="field"><label>目的港费用（RMB）</label><input type="text" id="destination_fee" readonly></div>
+    <div class="field"><label>资金占用利息（RMB）</label><input type="text" id="capital_interest" readonly></div>
+    <div class="field"><label>公司费用（RMB）</label><input type="text" id="company_expense" readonly></div>
+    <div class="field"><label>非成本支出费用（RMB）</label><input type="text" id="total_expense" readonly></div>
+    <div class="field"><label>毛利（RMB）</label><input type="text" id="gross_profit_rmb" readonly></div>
+    <div class="field"><label>实际毛利率</label><input type="text" id="gross_margin" readonly></div>
+    <div class="field"><label>净利润（RMB）</label><input type="text" id="net_profit_rmb" readonly></div>
+    <div class="field"><label>实际净利率</label><input type="text" id="net_margin" readonly></div>
+    <div class="field"><label>预算利润（RMB）</label><input type="text" id="budget_profit_rmb" readonly></div>
+    <div class="field"><label>预算利润（EUR）</label><input type="text" id="budget_profit_eur" readonly></div>
+  </div>
+</div>
+
+<script>
+const OUTPUT_IDS = [
+  "quantity_w", "quantity_MW", "foreign_income_eur", "total_income_rmb",
+  "total_cost_excl_tax", "china_export_fee", "freight_insurance", "destination_fee",
+  "capital_interest", "company_expense", "total_expense", "gross_profit_rmb",
+  "gross_margin", "net_profit_rmb", "net_margin", "budget_profit_rmb", "budget_profit_eur"
+];
+
+const TERM_DESC = {
+  "EXW": "工厂交货：仅含产品本身",
+  "FCA": "货交承运人：含中国端交货前费用",
+  "FOB": "船上交货：含中国端费用 + FOB附加费",
+  "CIF": "成本+保险+运费：含中国端 + 海运保险",
+  "DDP": "完税后交货：含中国端 + 海运保险 + 目的港费用",
+};
+
+function fmtNum(value, digits = 2) {
+  if (!isFinite(value)) return "";
+  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+function fmtPct(value, digits = 2) {
+  if (!isFinite(value)) return "";
+  return (value * 100).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }) + "%";
+}
+
+function parseDecimal(id, label) {
+  const raw = document.getElementById(id).value.trim();
+  if (raw === "") throw new Error(`${label}不能为空`);
+  const v = Number(raw);
+  if (!isFinite(v)) throw new Error(`${label}输入格式不正确：${raw}`);
+  return v;
+}
+
+function parsePercent(id, label) {
+  const raw = document.getElementById(id).value.trim();
+  if (raw === "") throw new Error(`${label}不能为空`);
+  const hasPercentSign = raw.endsWith("%");
+  const cleaned = raw.replace(/%$/, "").trim();
+  const v = Number(cleaned);
+  if (!isFinite(v)) throw new Error(`${label}输入格式不正确：${raw}`);
+  if (hasPercentSign || v > 1) return v / 100;
+  return v;
+}
+
+function updateTermDescription() {
+  const term = document.getElementById("trade_term").value;
+  document.getElementById("term_desc").textContent = TERM_DESC[term] || "";
+}
+
+function setStatus(text) {
+  document.getElementById("status").textContent = text;
+}
+
+function showError(message) {
+  const banner = document.getElementById("errorBanner");
+  banner.textContent = message;
+  banner.style.display = "block";
+}
+
+function clearError() {
+  const banner = document.getElementById("errorBanner");
+  banner.style.display = "none";
+  banner.textContent = "";
+}
+
+function getTermFeeComponents(term, cabinets, rate) {
+  const chinaExportFeePerCabinet = parseDecimal("china_export_fee_per_cabinet_rmb", "中国端费用/柜");
+  const fobExtraFeePerCabinet = parseDecimal("fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜");
+  const oceanFreightPerCabinet = parseDecimal("ocean_freight_per_cabinet_rmb", "海运费/柜");
+  const destinationFeePerCabinetEur = parseDecimal("destination_fee_per_cabinet_eur", "目的港基础费用/柜");
+  const ddpExtraPerCabinetEur = parseDecimal("ddp_extra_per_cabinet_eur", "DDP附加费用/柜");
+
+  let chinaExportFee = 0;
+  let oceanFreightFixed = 0;
+  let useInsurance = false;
+  let destinationFee = 0;
+
+  if (term === "FCA") {
+    chinaExportFee = chinaExportFeePerCabinet * cabinets;
+  } else if (term === "FOB") {
+    chinaExportFee = (chinaExportFeePerCabinet + fobExtraFeePerCabinet) * cabinets;
+  } else if (term === "CIF") {
+    chinaExportFee = (chinaExportFeePerCabinet + fobExtraFeePerCabinet) * cabinets;
+    oceanFreightFixed = oceanFreightPerCabinet * cabinets;
+    useInsurance = true;
+  } else if (term === "DDP") {
+    chinaExportFee = (chinaExportFeePerCabinet + fobExtraFeePerCabinet) * cabinets;
+    oceanFreightFixed = oceanFreightPerCabinet * cabinets;
+    useInsurance = true;
+    destinationFee = (destinationFeePerCabinetEur + ddpExtraPerCabinetEur) * cabinets * rate;
+  }
+
+  return { chinaExportFee, oceanFreightFixed, useInsurance, destinationFee };
+}
+
+function calculate() {
+  clearError();
+  try {
+    const model_w = parseDecimal("model_w", "型号");
+    const pieces = parseDecimal("pieces", "片数");
+    const cabinets = parseDecimal("cabinets", "柜数");
+    const rate = parseDecimal("rate", "汇率");
+    const cost_rmb = parseDecimal("cost_rmb", "成本");
+    const trade_term = document.getElementById("trade_term").value;
+    if (!trade_term) throw new Error("请选择贸易条款");
+    if (rate === 0) throw new Error("汇率不能为0");
+
+    const target_gross_margin = parsePercent("target_gross_margin", "目标毛利率");
+    const target_net_margin = parsePercent("target_net_margin", "目标净利率");
+
+    const annual_interest_rate = parseDecimal("annual_interest_rate", "资金年利率");
+    const capital_months = parseDecimal("capital_months", "资金占用月数");
+    const capital_ratio = parseDecimal("capital_ratio", "资金占用比例");
+    const company_expense_rate = parseDecimal("company_expense_rate", "公司费用率");
+    const insurance_rate = parseDecimal("insurance_rate", "保险费率");
+
+    const quantity_w = model_w * pieces * cabinets;
+    if (quantity_w === 0) throw new Error("型号/片数/柜数不能为0");
+    const quantity_MW = quantity_w / 1000000;
+    const total_cost_excl_tax = model_w * cost_rmb * pieces * cabinets;
+
+    const { chinaExportFee, oceanFreightFixed, useInsurance, destinationFee } =
+      getTermFeeComponents(trade_term, cabinets, rate);
+    const fixed_costs = total_cost_excl_tax + chinaExportFee + oceanFreightFixed + destinationFee;
+
+    const insurance_k = useInsurance ? insurance_rate : 0;
+    const capital_k = (annual_interest_rate / 12) * capital_months * capital_ratio;
+    const company_k = company_expense_rate;
+
+    const denom_gross = 1 - target_gross_margin - insurance_k - capital_k;
+    const denom_net = 1 - target_net_margin - insurance_k - capital_k - company_k;
+
+    if (denom_gross <= 0) throw new Error("目标毛利率过高，当前费用结构下无法实现，请降低目标或检查费用参数。");
+    if (denom_net <= 0) throw new Error("目标净利率过高，当前费用结构下无法实现，请降低目标或检查费用参数。");
+
+    const required_income_gross = fixed_costs / denom_gross;
+    const required_income_net = fixed_costs / denom_net;
+
+    // 两个目标利润率必须同时满足，取需要总收入更高的那个作为最终定价依据。
+    const total_income_rmb = Math.max(required_income_gross, required_income_net);
+
+    const unit_price_eur = total_income_rmb / (rate * quantity_w);
+    const foreign_income_eur = total_income_rmb / rate;
+
+    const freight_insurance = oceanFreightFixed + insurance_k * total_income_rmb;
+    const capital_interest = capital_k * total_income_rmb;
+    const company_expense = company_k * total_income_rmb;
+    const total_expense = chinaExportFee + freight_insurance + destinationFee + capital_interest + company_expense;
+
+    const gross_profit_rmb = total_income_rmb - total_cost_excl_tax - chinaExportFee
+      - freight_insurance - destinationFee - capital_interest;
+    const gross_margin = gross_profit_rmb / total_income_rmb;
+
+    const net_profit_rmb = total_income_rmb - total_cost_excl_tax - total_expense;
+    const net_margin = net_profit_rmb / total_income_rmb;
+
+    const budget_profit_rmb = net_profit_rmb;
+    const budget_profit_eur = budget_profit_rmb / rate;
+
+    document.getElementById("unit_price_eur").textContent = fmtNum(unit_price_eur, 4);
+
+    const vals = {
+      quantity_w: fmtNum(quantity_w, 2),
+      quantity_MW: fmtNum(quantity_MW, 6),
+      foreign_income_eur: fmtNum(foreign_income_eur, 2),
+      total_income_rmb: fmtNum(total_income_rmb, 2),
+      total_cost_excl_tax: fmtNum(total_cost_excl_tax, 2),
+      china_export_fee: fmtNum(chinaExportFee, 2),
+      freight_insurance: fmtNum(freight_insurance, 2),
+      destination_fee: fmtNum(destinationFee, 2),
+      capital_interest: fmtNum(capital_interest, 2),
+      company_expense: fmtNum(company_expense, 2),
+      total_expense: fmtNum(total_expense, 2),
+      gross_profit_rmb: fmtNum(gross_profit_rmb, 2),
+      gross_margin: fmtPct(gross_margin, 2),
+      net_profit_rmb: fmtNum(net_profit_rmb, 2),
+      net_margin: fmtPct(net_margin, 2),
+      budget_profit_rmb: fmtNum(budget_profit_rmb, 2),
+      budget_profit_eur: fmtNum(budget_profit_eur, 2),
+    };
+    for (const [k, v] of Object.entries(vals)) {
+      document.getElementById(k).value = v;
+    }
+
+    setStatus(`计算完成：当前条款 ${trade_term}`);
+  } catch (e) {
+    showError(e.message);
+    setStatus("计算失败");
+  }
+}
+
+function clearOutputs() {
+  document.getElementById("unit_price_eur").textContent = "--";
+  for (const id of OUTPUT_IDS) {
+    document.getElementById(id).value = "";
+  }
+  setStatus("输出已清空");
+  clearError();
+}
+
+async function refreshRate(auto = false) {
+  setStatus("正在获取实时汇率…");
+  try {
+    const resp = await fetch("https://api.frankfurter.dev/v1/latest?from=EUR&to=CNY");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const rate = data.rates && data.rates.CNY;
+    if (!rate) throw new Error("响应中未找到CNY汇率");
+    document.getElementById("rate").value = rate;
+    setStatus(`已获取实时 EUR/CNY：${rate}（数据源：frankfurter.dev，基于ECB参考汇率）`);
+  } catch (e) {
+    if (!document.getElementById("rate").value.trim()) {
+      document.getElementById("rate").value = "8";
+    }
+    setStatus(`汇率获取失败，已保留手动值。原因：${e.message}`);
+    if (!auto) {
+      showError(`未能自动获取汇率，请检查网络或稍后重试，也可手动输入。\n\n原因：${e.message}`);
+    }
+  }
+}
+
+refreshRate(true);
+</script>
+
+</body>
+</html>
