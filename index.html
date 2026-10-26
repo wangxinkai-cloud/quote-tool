@@ -166,6 +166,30 @@
   .seg button { flex: 1 1 30%; background: #e5e5ea; color: #333; padding: 10px 6px; font-size: 14px; }
   .seg button.active { background: #007aff; color: #fff; font-weight: 600; }
   .upload-note { font-size: 12px; color: #666; margin-top: 6px; white-space: pre-line; }
+  .tax-card { border: 1px solid #cfe0ff; }
+  .round-check {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 16px; font-weight: 600; color: #222;
+    cursor: pointer; margin: 0 0 4px;
+  }
+  .round-check input {
+    -webkit-appearance: none; appearance: none;
+    width: 24px; height: 24px; margin: 0; flex: none;
+    border: 2px solid #b0b0b8; border-radius: 50%; background: #fff;
+    display: grid; place-content: center; cursor: pointer;
+  }
+  .round-check input::before {
+    content: ""; width: 12px; height: 12px; border-radius: 50%;
+    background: #007aff; transform: scale(0); transition: transform 0.12s;
+  }
+  .round-check input:checked { border-color: #007aff; }
+  .round-check input:checked::before { transform: scale(1); }
+  /* 锁定的输入框：灰色、不能输入 */
+  input:disabled, select:disabled {
+    background: #e5e5ea; color: #9a9aa0; -webkit-text-fill-color: #9a9aa0; opacity: 1; cursor: not-allowed;
+  }
+  .field.locked label { color: #b0b0b8; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -263,11 +287,36 @@ const TERM_DESC = {
   "DDP": "完税后交货：含中国端 + 海运保险 + 目的港费用",
 };
 
+// 各项费用只在这些贸易条款下才会用到；选了别的条款，对应输入框锁定（灰色、不能输入）
+const FEE_RELEVANCE = {
+  china_export_fee_per_cabinet_rmb: ["FCA", "FOB", "CIF", "DDP"],
+  fob_extra_fee_per_cabinet_rmb: ["FOB", "CIF", "DDP"],
+  ocean_freight_per_cabinet_usd: ["CIF", "DDP"],
+  usd_rate: ["CIF", "DDP"],
+  insurance_rate: ["CIF", "DDP"],
+  destination_fee_per_cabinet_eur: ["DDP"],
+  ddp_extra_per_cabinet_eur: ["DDP"],
+};
+
+// “进项和销项税”只用于这些贸易条款（需要计算 FOB 价和销项税）
+const TAX_TERMS = ["FOB", "CIF", "DDP"];
+const TAX_FIELDS = [
+  ["tax_eur", "税务局汇率（EUR，出运当月第一天中行中间价）"],
+  ["tax_usd", "税务局汇率（USD）"],
+  ["lock_eur", "锁汇汇率（EUR）"],
+  ["lock_usd", "锁汇汇率（USD）"],
+];
+const TAX_OUTPUT_IDS = ["fob_eur", "fob_usd", "output_vat", "after_tax_income"];
+
 const OUTPUTS = [
   ["数量（W）", "quantity_w"],
   ["数量（MW）", "quantity_MW"],
   ["外币收入（EUR）", "foreign_income_eur"],
   ["总收入（RMB）", "total_income_rmb"],
+  ["FOB价（EUR）", "fob_eur"],
+  ["FOB价（USD）", "fob_usd"],
+  ["销项税（RMB）", "output_vat"],
+  ["税后收入（RMB）", "after_tax_income"],
   ["总成本（不含税）", "total_cost_excl_tax"],
   ["中国端费用（RMB）", "china_export_fee"],
   ["海运+保险（RMB）", "freight_insurance"],
@@ -490,7 +539,7 @@ function rateCellHTML(key) {
         <label for="${key}__rate">汇率（EUR/CNY）</label>
         <input type="text" id="${key}__rate" inputmode="decimal">
       </div>
-      <button type="button" class="btn-ghost" onclick="refreshRate('${key}')">刷新实时汇率</button>
+      <button type="button" class="btn-ghost" id="${key}__rate_btn" onclick="refreshRate('${key}')">刷新实时汇率</button>
     </div>`;
 }
 
@@ -515,6 +564,19 @@ function feeCardHTML(key, T) {
     </div>`;
 }
 
+// 每个计算页面最前面的“进项和销项税”选项和对应的汇率输入框
+function taxCardHTML(key) {
+  return `
+    <div class="card tax-card">
+      <label class="round-check">
+        <input type="checkbox" id="${key}__tax_on">
+        <span>进项和销项税</span>
+      </label>
+      <div class="hint" id="${key}__tax_hint"></div>
+      <div class="grid2">${TAX_FIELDS.map(([n, label]) => fieldText(key, n, label)).join("")}</div>
+    </div>`;
+}
+
 function actionsHTML(key) {
   return `
     <div class="btn-row">
@@ -531,7 +593,7 @@ function outputCardHTML(key, title, list, modes = "") {
       <div class="card-title">${title}</div>
       <div class="grid2">
         ${list.map(([label, n]) =>
-          `<div class="field"><label for="${key}__${n}">${label}</label><input type="text" id="${key}__${n}" readonly></div>`).join("")}
+          `<div class="field${TAX_OUTPUT_IDS.includes(n) ? " tax-only" : ""}"><label for="${key}__${n}">${label}</label><input type="text" id="${key}__${n}" readonly></div>`).join("")}
       </div>
     </div>`;
 }
@@ -545,6 +607,7 @@ function buildToolHTML(key) {
     rateCellHTML(key), termCellHTML(key), text("target_gross_margin", "目标毛利率"), text("target_net_margin", "目标净利率"),
   ];
   return `
+    ${taxCardHTML(key)}
     <div class="card">
       <div class="card-title">输入参数</div>
       <div class="grid2">${cells.join("")}</div>
@@ -610,6 +673,7 @@ function buildCarportHTML() {
     `<div class="price-row" data-row="${n}" data-modes="${modes}"><span class="price-row-label">${label}</span><span class="price-row-value" id="${key}__price_${n}">--</span></div>`;
 
   return `
+    ${taxCardHTML(key)}
     ${modeCard}
     <div class="card">
       <div class="card-title">输入参数</div>
@@ -631,39 +695,41 @@ function buildCarportHTML() {
 }
 
 /* ============ 计算 ============ */
-function readFeeContext(key) {
-  return {
-    chinaPerCab: readOptionalNumber(key, "china_export_fee_per_cabinet_rmb", "中国端费用/柜"),
-    fobExtraPerCab: readNumber(key, "fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜"),
-    oceanPerCabUsd: readOptionalNumber(key, "ocean_freight_per_cabinet_usd", "海运费/柜（USD）"),
-    usdRate: readOptionalNumber(key, "usd_rate", "美元汇率"),
-    destPerCabEur: readNumber(key, "destination_fee_per_cabinet_eur", "目的港基础费用/柜"),
-    ddpExtraPerCabEur: readNumber(key, "ddp_extra_per_cabinet_eur", "DDP附加费用/柜"),
-    insuranceRate: readNumber(key, "insurance_rate", "保险费率"),
+// 读取费用参数；只读取当前贸易条款会用到的项（其余项对应的输入框是锁定的，不参与计算）
+function readFeeContext(key, term, taxCtx) {
+  const rel = (name) => FEE_RELEVANCE[name].includes(term);
+  const num = (name, label) => (rel(name) ? readNumber(key, name, label) : 0);
+  const ctx = {
+    chinaPerCab: num("china_export_fee_per_cabinet_rmb", "中国端费用/柜"),
+    fobExtraPerCab: num("fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜"),
+    oceanPerCabUsd: num("ocean_freight_per_cabinet_usd", "海运费/柜（USD）"),
+    destPerCabEur: num("destination_fee_per_cabinet_eur", "目的港基础费用/柜"),
+    ddpExtraPerCabEur: num("ddp_extra_per_cabinet_eur", "DDP附加费用/柜"),
+    insuranceRate: num("insurance_rate", "保险费率"),
     annualRate: readNumber(key, "annual_interest_rate", "资金年利率"),
     capitalMonths: readNumber(key, "capital_months", "资金占用月数"),
     capitalRatio: readNumber(key, "capital_ratio", "资金占用比例"),
     companyRate: readNumber(key, "company_expense_rate", "公司费用率"),
+    usdRate: 0,
   };
+  if (ctx.oceanPerCabUsd !== 0) {
+    // 海运费按美元计，需要美元汇率换算成人民币；“进项和销项税”下用锁汇汇率（USD）
+    ctx.usdRate = taxCtx ? readNumber(key, "lock_usd", "锁汇汇率（USD）") : readNumber(key, "usd_rate", "美元汇率");
+    if (ctx.usdRate <= 0) throw new Error("美元汇率必须大于0");
+  }
+  return ctx;
 }
 
 // 某个贸易条款下，一批货（cabinets 个柜）的固定费用；保险费随收入变化，在 solveOrder 里单独处理
 function termFees(ctx, term, cabinets, rate) {
   let chinaExportFee = 0, oceanFreightFixed = 0, useInsurance = false, destinationFee = 0;
-  if (term !== "EXW" && ctx.chinaPerCab === null) {
-    throw new Error("中国端费用/柜不能为空（EXW 以外的贸易条款都要填写）");
-  }
   if (term === "FCA") {
     chinaExportFee = ctx.chinaPerCab * cabinets;
   } else if (term === "FOB") {
     chinaExportFee = (ctx.chinaPerCab + ctx.fobExtraPerCab) * cabinets;
   } else if (term === "CIF" || term === "DDP") {
-    if (ctx.oceanPerCabUsd === null) throw new Error("海运费/柜（USD）不能为空（CIF、DDP 要填写）");
-    if (ctx.oceanPerCabUsd !== 0 && (ctx.usdRate === null || ctx.usdRate <= 0)) {
-      throw new Error("美元汇率不能为空（海运费按美元计，需要换算成人民币）");
-    }
     chinaExportFee = (ctx.chinaPerCab + ctx.fobExtraPerCab) * cabinets;
-    oceanFreightFixed = ctx.oceanPerCabUsd * (ctx.usdRate || 0) * cabinets;   // 美元海运费 × USD/CNY → 人民币
+    oceanFreightFixed = ctx.oceanPerCabUsd * ctx.usdRate * cabinets;   // 美元海运费 × USD/CNY → 人民币
     useInsurance = true;
     if (term === "DDP") destinationFee = (ctx.destPerCabEur + ctx.ddpExtraPerCabEur) * cabinets * rate;
   }
@@ -674,13 +740,15 @@ function termFees(ctx, term, cabinets, rate) {
 // 因此可以反解出满足目标利润率所需的最小总收入。
 // cost：这批货的不含税总成本；cabinets：柜数（运费等按柜计，同柜装运的货合并成一批，运费只算一次）。
 // targetGross / targetNet 为 null 表示不参与；同时给出时取需要总收入更高的那个，使两项目标都满足。
-function solveOrder({ cost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels }) {
+// tax 不为空时，按“进项和销项税”（表格的“0%退税后测算”）计算，见 solveOrderTax。
+function solveOrder({ cost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels, tax = null }) {
   const f = termFees(ctx, term, cabinets, rate);
-  const fixedCosts = cost + f.chinaExportFee + f.oceanFreightFixed + f.destinationFee;
   const insuranceK = f.useInsurance ? ctx.insuranceRate : 0;
   const capitalK = (ctx.annualRate / 12) * ctx.capitalMonths * ctx.capitalRatio;
   const companyK = ctx.companyRate;
+  if (tax) return solveOrderTax({ f, cost, quantityW, rate, term, insuranceK, capitalK, companyK, targetGross, targetNet, labels, tax });
 
+  const fixedCosts = cost + f.chinaExportFee + f.oceanFreightFixed + f.destinationFee;
   const candidates = [];
   if (targetGross !== null) {
     const denom = 1 - targetGross - insuranceK - capitalK;
@@ -707,12 +775,87 @@ function solveOrder({ cost, cabinets, quantityW, rate, term, ctx, targetGross, t
     unitPriceEurPerW: totalIncomeRmb / (rate * quantityW),
     grossMargin: grossProfit / totalIncomeRmb,
     netMargin: netProfit / totalIncomeRmb,
+    tax: null,
+  };
+}
+
+// “进项和销项税”（对应表格 14、15 行，0% 退税后测算）。J = 外币收入（EUR），K = 锁汇汇率（EUR），T = 税务局汇率（EUR）：
+//   FOB价（EUR）   = J − 运费 − 保费（CIF）；J − 运费 − 保费 − 目的港/DDP 费用（DDP）；J（FOB）
+//   销项税（RMB）  = FOB价（EUR）× T ÷ 1.13 × 13%        （表格里经 USD 折算，K8 相消）
+//   税后收入（RMB）= J × K − 销项税
+//   毛利润（RMB）  = 税后收入 − 不含税成本 − 费用（不含公司费用）；毛利率 = 毛利润 ÷ 税后收入
+//   净利润         = 毛利润 − 公司费用；净利率 = 净利润 ÷ 税前收入（J × K）
+// 以上对 J 都是一次式，所以可以按目标利润率直接反解 J。
+function solveOrderTax({ f, cost, quantityW, rate, term, insuranceK, capitalK, companyK, targetGross, targetNet, labels, tax }) {
+  const K = rate, S = cost;
+  const feeRmb = f.chinaExportFee + f.oceanFreightFixed + f.destinationFee;
+  const n = tax.taxEur * 0.13 / 1.13;                       // 每 1 EUR 的 FOB 价对应的销项税（RMB）
+  let a = 1, b = 0;                                          // FOB价（EUR）= a × J − b
+  if (term === "CIF") { a = 1 - insuranceK; b = f.oceanFreightFixed / K; }
+  else if (term === "DDP") { a = 1 - insuranceK; b = (f.oceanFreightFixed + f.destinationFee) / K; }
+  const o1 = K - n * a, o0 = n * b;                          // 税后收入 = o1 × J + o0
+  const c1 = o1 - K * (insuranceK + capitalK);               // 毛利润   = c1 × J + c0
+  const c0 = o0 - S - feeRmb;
+
+  const candidates = [];
+  if (targetGross !== null) {
+    const d = c1 - targetGross * o1;
+    const j = (targetGross * o0 - c0) / d;
+    if (!(d > 0 && j > 0)) throw new Error(`${labels.gross}过高，当前费用结构下无法实现，请降低目标或检查费用参数。`);
+    candidates.push(j);
+  }
+  if (targetNet !== null) {
+    const d = c1 - K * (targetNet + companyK);
+    const j = -c0 / d;
+    if (!(d > 0 && j > 0)) throw new Error(`${labels.net}过高，当前费用结构下无法实现，请降低目标或检查费用参数。`);
+    candidates.push(j);
+  }
+  const J = Math.max(...candidates);
+
+  const L = K * J;
+  const fobEur = a * J - b;
+  const outputVat = n * fobEur;
+  const afterTaxIncome = L - outputVat;
+  const freightInsurance = f.oceanFreightFixed + insuranceK * L;
+  const capitalInterest = capitalK * L;
+  const companyExpense = companyK * L;
+  const totalExpense = f.chinaExportFee + freightInsurance + f.destinationFee + capitalInterest + companyExpense;
+  const grossProfit = afterTaxIncome - S - (f.chinaExportFee + freightInsurance + f.destinationFee + capitalInterest);
+  const netProfit = grossProfit - companyExpense;
+  return {
+    totalCost: S, china: f.chinaExportFee, freightInsurance, dest: f.destinationFee,
+    capitalInterest, companyExpense, totalExpense, grossProfit, netProfit, totalIncomeRmb: L,
+    foreignIncomeEur: J,
+    unitPriceEurPerW: J / quantityW,
+    grossMargin: grossProfit / afterTaxIncome,
+    netMargin: netProfit / L,
+    tax: { fobEur, fobUsd: tax.taxUsd ? fobEur * tax.taxEur / tax.taxUsd : null, outputVat, afterTaxIncome },
   };
 }
 
 // 可留空的利润率输入：留空返回 null
 function readOptionalPercent(key, name, label) {
   return $(key, name).value.trim() === "" ? null : readPercent(key, name, label);
+}
+
+// “进项和销项税”是否生效：勾选了，并且贸易条款是 FOB / CIF / DDP
+function taxActive(key) {
+  return $(key, "tax_on").checked && TAX_TERMS.includes($(key, "trade_term").value);
+}
+
+// 生效时读取税务局汇率和锁汇汇率（EUR）；不生效返回 null
+function getTaxContext(key, term) {
+  if (!$(key, "tax_on").checked || !TAX_TERMS.includes(term)) return null;
+  const taxEur = readNumber(key, "tax_eur", "税务局汇率（EUR）");
+  const lockEur = readNumber(key, "lock_eur", "锁汇汇率（EUR）");
+  if (taxEur <= 0 || lockEur <= 0) throw new Error("税务局汇率和锁汇汇率必须大于0");
+  return { taxEur, taxUsd: readOptionalNumber(key, "tax_usd", "税务局汇率（USD）"), lockEur };
+}
+
+// 状态栏里的补充说明
+function taxStatusNote(key, taxCtx) {
+  if (taxCtx) return "，进项和销项税";
+  return $(key, "tax_on").checked ? "（进项和销项税仅用于 FOB、CIF、DDP，本次按原逻辑计算）" : "";
 }
 
 // 把一批货的求解结果写进“输出结果”卡片
@@ -723,6 +866,10 @@ function putMainOutputs(key, r, quantityW, rate) {
   put("quantity_MW", fmtNum(quantityW / 1000000, 6));
   put("foreign_income_eur", fmtNum(r.foreignIncomeEur, 2));
   put("total_income_rmb", fmtNum(r.totalIncomeRmb, 2));
+  put("fob_eur", r.tax ? fmtNum(r.tax.fobEur, 2) : "");
+  put("fob_usd", r.tax && r.tax.fobUsd !== null ? fmtNum(r.tax.fobUsd, 2) : "");
+  put("output_vat", r.tax ? fmtNum(r.tax.outputVat, 2) : "");
+  put("after_tax_income", r.tax ? fmtNum(r.tax.afterTaxIncome, 2) : "");
   put("total_cost_excl_tax", fmtNum(r.totalCost, 2));
   put("china_export_fee", fmtNum(r.china, 2));
   put("freight_insurance", fmtNum(r.freightInsurance, 2));
@@ -746,23 +893,25 @@ function calculate(key) {
     const modelW = readNumber(key, "model_w", T.modelName);
     const count = readNumber(key, "pieces", T.countName);
     const cabinets = readNumber(key, "cabinets", "柜数");
-    const rate = readNumber(key, "rate", "汇率");
     const costRmb = readNumber(key, "cost_rmb", T.costName);
     const term = $(key, "trade_term").value;
     if (!term) throw new Error("请选择贸易条款");
+    const taxCtx = getTaxContext(key, term);
+    const rate = taxCtx ? taxCtx.lockEur : readNumber(key, "rate", "汇率");
     if (rate === 0) throw new Error("汇率不能为0");
 
     const targetGross = readPercent(key, "target_gross_margin", "目标毛利率");
     const targetNet = readPercent(key, "target_net_margin", "目标净利率");
-    const ctx = readFeeContext(key);
+    const ctx = readFeeContext(key, term, taxCtx);
 
     const quantityW = T.qtyMode === "perCabinet" ? modelW * count * cabinets : modelW * count;
     if (quantityW === 0) {
       throw new Error(T.qtyMode === "perCabinet" ? "型号/片数/柜数不能为0" : `${T.modelName}/${T.countName}不能为0`);
     }
+    const costDivisor = taxCtx ? 1.13 : T.costDivisor;   // 进项：含税采购成本 ÷1.13
     const r = solveOrder({
-      cost: quantityW * costRmb / T.costDivisor, cabinets, quantityW, rate, term, ctx, targetGross, targetNet,
-      labels: { gross: "目标毛利率", net: "目标净利率" },
+      cost: quantityW * costRmb / costDivisor, cabinets, quantityW, rate, term, ctx, targetGross, targetNet,
+      labels: { gross: "目标毛利率", net: "目标净利率" }, tax: taxCtx,
     });
     putMainOutputs(key, r, quantityW, rate);
 
@@ -776,7 +925,7 @@ function calculate(key) {
       unit.textContent = "EUR / W";
       sub.textContent = "";
     }
-    setStatus(key, `计算完成：当前条款 ${term}`);
+    setStatus(key, `计算完成：当前条款 ${term}${taxStatusNote(key, taxCtx)}`);
   } catch (e) {
     showError(e.message);
     setStatus(key, "计算失败");
@@ -796,15 +945,16 @@ function calculateCarport() {
     const modelW = readNumber(key, "model_w", "型号");
     const count = readNumber(key, "pieces", "片数");
     const cabinets = readNumber(key, "cabinets", "柜数");
-    const rate = readNumber(key, "rate", "汇率");
     const bracketCostPerW = readNumber(key, "cost_rmb", "支架采购成本");
     const term = $(key, "trade_term").value;
     if (!term) throw new Error("请选择贸易条款");
+    const taxCtx = getTaxContext(key, term);
+    const rate = taxCtx ? taxCtx.lockEur : readNumber(key, "rate", "汇率");
     if (rate === 0) throw new Error("汇率不能为0");
 
     const targetGross = readPercent(key, "target_gross_margin", "目标毛利率");
     const targetNet = readPercent(key, "target_net_margin", "目标净利率");
-    const ctx = readFeeContext(key);
+    const ctx = readFeeContext(key, term, taxCtx);
 
     let spaces = null;
     if (mode === "space" && $(key, "spaces").value.trim() !== "") {
@@ -815,18 +965,19 @@ function calculateCarport() {
     const quantityW = modelW * count;
     if (quantityW === 0) throw new Error("型号/片数不能为0");
     const labels = { gross: "目标毛利率", net: "目标净利率" };
-    const bracketCost = quantityW * bracketCostPerW / T.costDivisor;
+    const bracketCost = quantityW * bracketCostPerW / (taxCtx ? 1.13 : T.costDivisor);
 
     let primary, bracketPrice, modulePrice = null, split = null, ownTargets = false;
     if (mode === "bracket") {
-      primary = solveOrder({ cost: bracketCost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels });
+      primary = solveOrder({ cost: bracketCost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels, tax: taxCtx });
       bracketPrice = primary.unitPriceEurPerW;
     } else {
-      const moduleCost = quantityW * readNumber(key, "m_cost", "组件成本");
+      // 组件成本：进项和销项税下按含税价 ÷1.13
+      const moduleCost = quantityW * readNumber(key, "m_cost", "组件成本") / (taxCtx ? 1.13 : 1);
       const batchCost = bracketCost + moduleCost;
       if (batchCost <= 0) throw new Error("支架和组件的成本必须大于0");
       // 同柜装运：支架+组件合成一批货，柜数（运费）只算一次
-      primary = solveOrder({ cost: batchCost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels });
+      primary = solveOrder({ cost: batchCost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels, tax: taxCtx });
       const bracketShare = bracketCost / batchCost;
       const bracketIncome = primary.totalIncomeRmb * bracketShare;
       const moduleIncome = primary.totalIncomeRmb - bracketIncome;
@@ -843,6 +994,7 @@ function calculateCarport() {
           targetGross: ownTargets ? pg : targetGross,
           targetNet: ownTargets ? pn : targetNet,
           labels: ownTargets ? { gross: "车位目标毛利率", net: "车位目标净利率" } : labels,
+          tax: taxCtx,
         });
       }
     }
@@ -874,7 +1026,7 @@ function calculateCarport() {
       if (!ownTargets) notes.push("未填车位目标利润率：车位报价按单项目标计算");
     }
     $(key, "price_sub").textContent = notes.join("\n");
-    setStatus(key, `计算完成：${CARPORT_MODES[mode].name}，当前条款 ${term}`);
+    setStatus(key, `计算完成：${CARPORT_MODES[mode].name}，当前条款 ${term}${taxStatusNote(key, taxCtx)}`);
   } catch (e) {
     showError(e.message);
     setStatus(key, "计算失败");
@@ -1177,6 +1329,41 @@ function initCarport() {
   setCarportMode("bracket");
 }
 
+/* ============ 进项和销项税、按贸易条款锁定无关输入框 ============ */
+function setLocked(key, name, locked) {
+  const el = $(key, name);
+  if (!el) return;
+  el.disabled = locked;
+  const field = el.closest(".field");
+  if (field) field.classList.toggle("locked", locked);
+}
+
+function updateLocks(key) {
+  const checked = $(key, "tax_on").checked;
+  const term = $(key, "trade_term").value;
+  const active = checked && TAX_TERMS.includes(term);
+
+  // 税务局汇率、锁汇汇率：勾选且贸易条款为 FOB/CIF/DDP 才能输入
+  TAX_FIELDS.forEach(([n]) => setLocked(key, n, !active));
+  let hint = "不选则按现在的逻辑计算。";
+  if (checked && term === "") hint = "请先选择贸易条款。";
+  else if (checked && !active) hint = `贸易条款 ${term} 不涉及 FOB 价和销项税，仍按现在的逻辑计算（仅 FOB、CIF、DDP 使用）。`;
+  else if (active) hint = "按“0%退税后测算”计算：采购成本按含税价 ÷1.13（进项），收入扣除销项税 = FOB价 × 税务局汇率 ÷1.13 × 13%，收入和费用按锁汇汇率折算。";
+  $(key, "tax_hint").textContent = hint;
+
+  // 与当前贸易条款无关的费用：锁定。没选贸易条款时全部可输入。
+  Object.entries(FEE_RELEVANCE).forEach(([n, terms]) => {
+    let lock = term !== "" && !terms.includes(term);
+    if (n === "usd_rate" && active) lock = true;      // 进项和销项税下海运费用锁汇汇率（USD）换算
+    setLocked(key, n, lock);
+  });
+  // 进项和销项税下，收入按锁汇汇率（EUR）折算，不再使用“汇率（EUR/CNY）”
+  setLocked(key, "rate", active);
+  $(key, "rate_btn").disabled = active;
+
+  document.querySelectorAll(`#tool-${key} .tax-only`).forEach((el) => { el.hidden = !checked; });
+}
+
 /* ============ 初始化 ============ */
 function applyPreset(key, value) {
   if (value === "") return;
@@ -1185,7 +1372,7 @@ function applyPreset(key, value) {
     if (!p) return;
     $(key, "model_w").value = p.w;
     $(key, "pieces").value = p.pcs;
-    $(key, "cost_rmb").value = p.cost;
+    $(key, "cost_rmb").value = key === "pv" && taxActive(key) ? p.raw : p.cost;
   } else if (key === "carport") {
     if (value.startsWith("c:")) {
       $(key, "model_w").value = value.slice(2);
@@ -1194,7 +1381,7 @@ function applyPreset(key, value) {
       const p = MODULE_PRESETS[Number(value.slice(2))];
       if (!p) return;
       $(key, "model_w").value = p.w;
-      $(key, "m_cost").value = p.cost;
+      $(key, "m_cost").value = taxActive(key) ? p.raw : p.cost;
     }
   }
 }
@@ -1226,9 +1413,18 @@ function init() {
       const watched = key === "carport" ? ["model_w", "m_cost"] : ["model_w", "pieces", "cost_rmb"];
       watched.forEach((n) => $(key, n).addEventListener("input", () => { preset.value = ""; }));
     }
+    // 贸易条款或“进项和销项税”改变：更新锁定状态；已选预设的成本按含税/不含税口径重新带入
+    const refreshState = () => {
+      updateLocks(key);
+      const p = $(key, "preset");
+      if (p && p.value !== "") applyPreset(key, p.value);
+    };
     $(key, "trade_term").addEventListener("change", () => {
       $(key, "term_desc").textContent = TERM_DESC[$(key, "trade_term").value] || "";
+      refreshState();
     });
+    $(key, "tax_on").addEventListener("change", refreshState);
+    updateLocks(key);
   });
 
   initCarport();
