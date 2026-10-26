@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>报价计算工具</title>
 <style>
-  :root {
-    color-scheme: light;
-  }
+  :root { color-scheme: light; }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     padding: 16px;
@@ -16,11 +15,56 @@
     background: #f2f2f7;
     color: #1c1c1e;
   }
-  h1 {
-    font-size: 18px;
-    margin: 0 0 16px;
-    text-align: center;
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    position: relative;
   }
+  .topbar h1 { font-size: 20px; margin: 0 0 6px; }
+  .tool-pill {
+    display: inline-block;
+    background: #007aff;
+    color: #fff;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  #settingsBtn {
+    background: #fff;
+    color: #333;
+    border: 1px solid #d1d1d6;
+    white-space: nowrap;
+  }
+  .menu {
+    position: absolute;
+    right: 0;
+    top: 46px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    padding: 8px;
+    min-width: 220px;
+    z-index: 20;
+  }
+  .menu-title { font-size: 12px; color: #888; padding: 6px 10px; }
+  .menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    color: #222;
+    padding: 12px 10px;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+  .menu button.active { background: #eef4ff; color: #007aff; font-weight: 600; }
+
   .card {
     background: #fff;
     border-radius: 12px;
@@ -36,14 +80,8 @@
     border-left: 4px solid #007aff;
     padding-left: 8px;
   }
-  .price-card {
-    border: 2px solid #ff3b30;
-    background: #fff5f5;
-  }
-  .price-card .card-title {
-    color: #ff3b30;
-    border-left-color: #ff3b30;
-  }
+  .price-card { border: 2px solid #ff3b30; background: #fff5f5; }
+  .price-card .card-title { color: #ff3b30; border-left-color: #ff3b30; }
   .price-value {
     font-size: 32px;
     font-weight: 700;
@@ -51,22 +89,35 @@
     text-align: center;
     padding: 8px 0 4px;
   }
-  .price-unit {
-    text-align: center;
-    color: #999;
+  .price-unit { text-align: center; color: #999; font-size: 13px; }
+  .price-sub { text-align: center; color: #888; font-size: 12px; margin-top: 4px; min-height: 14px; white-space: pre-line; }
+  .price-rows { display: grid; gap: 4px; margin-top: 2px; }
+  .price-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 2px 12px;
+    padding: 8px 4px;
+    border-bottom: 1px dashed #ffc9c6;
+  }
+  .price-row:last-child { border-bottom: none; }
+  .price-row-label { color: #666; font-size: 13px; }
+  .price-row-value { color: #ff3b30; font-weight: 700; font-size: 22px; white-space: nowrap; }
+  .price-row.main .price-row-label { color: #ff3b30; font-weight: 600; }
+  .price-row.main .price-row-value { font-size: 30px; }
+  .subhead {
     font-size: 13px;
-    margin-bottom: 4px;
+    font-weight: 600;
+    color: #444;
+    margin: 6px 0 8px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
   }
-  .field {
-    margin-bottom: 10px;
-  }
-  label {
-    display: block;
-    font-size: 13px;
-    color: #555;
-    margin-bottom: 4px;
-  }
-  input[type=text], input[type=number], select {
+
+  .field { margin-bottom: 10px; }
+  label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+  input[type=text], select {
     width: 100%;
     padding: 10px;
     font-size: 16px;
@@ -74,23 +125,17 @@
     border-radius: 8px;
     background: #fff;
   }
-  input[readonly] {
-    background: #f2f2f7;
-    color: #333;
-  }
-  .grid2 {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0 12px;
-  }
+  input[readonly] { background: #f2f2f7; color: #333; }
+  .inline { display: flex; gap: 8px; }
+  .inline input { flex: 1; min-width: 0; }
+  .inline select { flex: 0 0 auto; width: 46%; max-width: 260px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 12px; }
+  .grid2 > * { min-width: 0; }
   @media (min-width: 640px) {
-    .grid2 { grid-template-columns: 1fr 1fr; }
+    .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .span2 { grid-column: 1 / -1; }
   }
-  .rate-row {
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-  }
+  .rate-row { display: flex; gap: 8px; align-items: flex-end; }
   .rate-row .field { flex: 1; margin-bottom: 0; }
   button {
     font-size: 15px;
@@ -99,32 +144,12 @@
     border: none;
     cursor: pointer;
   }
-  .btn-primary {
-    background: #007aff;
-    color: #fff;
-    flex: 1;
-  }
-  .btn-secondary {
-    background: #e5e5ea;
-    color: #333;
-  }
-  .btn-ghost {
-    background: #eef4ff;
-    color: #007aff;
-    white-space: nowrap;
-  }
-  .btn-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  #status {
-    text-align: center;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 14px;
-    min-height: 16px;
-  }
+  .btn-primary { background: #007aff; color: #fff; flex: 1; }
+  .btn-secondary { background: #e5e5ea; color: #333; }
+  .btn-ghost { background: #eef4ff; color: #007aff; white-space: nowrap; }
+  .btn-block { display: block; width: 100%; white-space: normal; line-height: 1.4; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .status { text-align: center; font-size: 13px; color: #666; margin-bottom: 14px; min-height: 16px; }
   #errorBanner {
     display: none;
     background: #fff0f0;
@@ -136,157 +161,99 @@
     font-size: 14px;
     white-space: pre-line;
   }
-  .term-desc {
-    font-size: 12px;
-    color: #888;
-    margin-top: 4px;
-  }
+  .hint { font-size: 12px; color: #888; margin-top: 4px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .seg button { flex: 1 1 30%; background: #e5e5ea; color: #333; padding: 10px 6px; font-size: 14px; }
+  .seg button.active { background: #007aff; color: #fff; font-weight: 600; }
+  .upload-note { font-size: 12px; color: #666; margin-top: 6px; white-space: pre-line; }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<h1>报价计算工具</h1>
+<div class="topbar">
+  <div>
+    <h1>报价计算工具</h1>
+    <span class="tool-pill" id="toolPill"></span>
+  </div>
+  <div>
+    <button id="settingsBtn" type="button" aria-haspopup="true" aria-expanded="false">⚙ 设置</button>
+    <div class="menu" id="settingsMenu" hidden>
+      <div class="menu-title">切换计算工具</div>
+      <button type="button" data-tool="pv">PV Module</button>
+      <button type="button" data-tool="inverter">Inverter</button>
+      <button type="button" data-tool="carport">Carport</button>
+      <button type="button" data-tool="srau">SRAU</button>
+    </div>
+  </div>
+</div>
 
 <div id="errorBanner"></div>
 
-<div class="card">
-  <div class="card-title">输入参数</div>
-  <div class="grid2">
-    <div class="field">
-      <label>型号（W）</label>
-      <input type="text" id="model_w" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>片数（个）</label>
-      <input type="text" id="pieces" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>柜数（个）</label>
-      <input type="text" id="cabinets" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>成本（RMB/W）</label>
-      <input type="text" id="cost_rmb" inputmode="decimal">
-    </div>
-    <div class="field rate-row">
-      <div class="field">
-        <label>汇率（EUR/CNY）</label>
-        <input type="text" id="rate" inputmode="decimal">
-      </div>
-      <button class="btn-ghost" onclick="refreshRate()">刷新实时汇率</button>
-    </div>
-    <div class="field">
-      <label>贸易条款</label>
-      <select id="trade_term" onchange="updateTermDescription()">
-        <option value="">请选择</option>
-        <option value="EXW">EXW</option>
-        <option value="FCA">FCA</option>
-        <option value="FOB">FOB</option>
-        <option value="CIF">CIF</option>
-        <option value="DDP">DDP</option>
-      </select>
-      <div class="term-desc" id="term_desc"></div>
-    </div>
-    <div class="field">
-      <label>目标毛利率（如 0.07 或 7 或 7%）</label>
-      <input type="text" id="target_gross_margin" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>目标净利率（如 0.05 或 5 或 5%）</label>
-      <input type="text" id="target_net_margin" inputmode="decimal">
-    </div>
-  </div>
-</div>
+<div id="app"></div>
 
-<div class="card">
-  <div class="card-title">费用参数</div>
-  <div class="grid2">
-    <div class="field">
-      <label>中国端费用/柜（RMB）</label>
-      <input type="text" id="china_export_fee_per_cabinet_rmb" value="15000" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>FOB附加费用/柜（RMB）</label>
-      <input type="text" id="fob_extra_fee_per_cabinet_rmb" value="2000" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>海运费/柜（RMB）</label>
-      <input type="text" id="ocean_freight_per_cabinet_rmb" value="19229.5" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>保险费率</label>
-      <input type="text" id="insurance_rate" value="0.0045" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>目的港基础费用/柜（EUR）</label>
-      <input type="text" id="destination_fee_per_cabinet_eur" value="1400" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>DDP附加费用/柜（EUR）</label>
-      <input type="text" id="ddp_extra_per_cabinet_eur" value="2000" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>资金年利率</label>
-      <input type="text" id="annual_interest_rate" value="0.039" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>资金占用月数</label>
-      <input type="text" id="capital_months" value="4" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>资金占用比例</label>
-      <input type="text" id="capital_ratio" value="0.9" inputmode="decimal">
-    </div>
-    <div class="field">
-      <label>公司费用率</label>
-      <input type="text" id="company_expense_rate" value="0.025" inputmode="decimal">
-    </div>
-  </div>
-</div>
-
-<div class="btn-row">
-  <button class="btn-primary" onclick="calculate()">计算结果</button>
-  <button class="btn-secondary" onclick="clearOutputs()">清空输出</button>
-</div>
-
-<div id="status">准备就绪</div>
-
-<div class="card price-card">
-  <div class="card-title">建议报价单价</div>
-  <div class="price-value" id="unit_price_eur">--</div>
-  <div class="price-unit">EUR / W</div>
-</div>
-
-<div class="card">
-  <div class="card-title">输出结果</div>
-  <div class="grid2">
-    <div class="field"><label>数量（W）</label><input type="text" id="quantity_w" readonly></div>
-    <div class="field"><label>数量（MW）</label><input type="text" id="quantity_MW" readonly></div>
-    <div class="field"><label>外币收入（EUR）</label><input type="text" id="foreign_income_eur" readonly></div>
-    <div class="field"><label>总收入（RMB）</label><input type="text" id="total_income_rmb" readonly></div>
-    <div class="field"><label>总成本（不含税）</label><input type="text" id="total_cost_excl_tax" readonly></div>
-    <div class="field"><label>中国端费用（RMB）</label><input type="text" id="china_export_fee" readonly></div>
-    <div class="field"><label>海运+保险（RMB）</label><input type="text" id="freight_insurance" readonly></div>
-    <div class="field"><label>目的港费用（RMB）</label><input type="text" id="destination_fee" readonly></div>
-    <div class="field"><label>资金占用利息（RMB）</label><input type="text" id="capital_interest" readonly></div>
-    <div class="field"><label>公司费用（RMB）</label><input type="text" id="company_expense" readonly></div>
-    <div class="field"><label>非成本支出费用（RMB）</label><input type="text" id="total_expense" readonly></div>
-    <div class="field"><label>毛利（RMB）</label><input type="text" id="gross_profit_rmb" readonly></div>
-    <div class="field"><label>实际毛利率</label><input type="text" id="gross_margin" readonly></div>
-    <div class="field"><label>净利润（RMB）</label><input type="text" id="net_profit_rmb" readonly></div>
-    <div class="field"><label>实际净利率</label><input type="text" id="net_margin" readonly></div>
-    <div class="field"><label>预算利润（RMB）</label><input type="text" id="budget_profit_rmb" readonly></div>
-    <div class="field"><label>预算利润（EUR）</label><input type="text" id="budget_profit_eur" readonly></div>
-  </div>
 </div>
 
 <script>
-const OUTPUT_IDS = [
-  "quantity_w", "quantity_MW", "foreign_income_eur", "total_income_rmb",
-  "total_cost_excl_tax", "china_export_fee", "freight_insurance", "destination_fee",
-  "capital_interest", "company_expense", "total_expense", "gross_profit_rmb",
-  "gross_margin", "net_profit_rmb", "net_margin", "budget_profit_rmb", "budget_profit_eur"
+/* ============ 数据：来自「报价成本测算表.xlsx」 ============ */
+
+// 440 / 500矩形 / 595 / 620 / 700 各 sheet 中，每个型号取表里最新（最靠下）的一条记录。
+// cost 为不含税成本；raw/div 记录表中原始含税成本及其总成本公式里的除数（1.13 表示表里按 ÷1.13 计入不含税成本）。
+const MODULE_PRESETS = [
+  { series: "440", w: 450, pcs: 936, cost: 0.7963, raw: 0.7963, div: 1 },
+  { series: "440", w: 460, pcs: 936, cost: 0.78, raw: 0.78, div: 1 },
+  { series: "440", w: 480, pcs: 864, cost: 0.897, raw: 0.897, div: 1 },
+  { series: "440", w: 490, pcs: 864, cost: 0.7407, raw: 0.837, div: 1.13 },
+  { series: "500矩形", w: 480, pcs: 864, cost: 1.07, raw: 1.07, div: 1 },
+  { series: "500矩形", w: 490, pcs: 864, cost: 1.1, raw: 1.1, div: 1 },
+  { series: "500矩形", w: 500, pcs: 864, cost: 0.6903, raw: 0.78, div: 1.13 },
+  { series: "500矩形", w: 510, pcs: 864, cost: 0.798, raw: 0.798, div: 1 },
+  { series: "595", w: 595, pcs: 720, cost: 0.725, raw: 0.725, div: 1 },
+  { series: "620", w: 620, pcs: 144, cost: 0.75, raw: 0.75, div: 1 },
+  { series: "620", w: 630, pcs: 720, cost: 0.737, raw: 0.737, div: 1 },
+  { series: "620", w: 650, pcs: 720, cost: 0.73, raw: 0.73, div: 1 },
+  { series: "620", w: 660, pcs: 720, cost: 0.8, raw: 0.8, div: 1 },
+  { series: "700", w: 720, pcs: 594, cost: 0.7, raw: 0.7, div: 1 },
+  { series: "700", w: 725, pcs: 132, cost: 0.77, raw: 0.77, div: 1 },
+  { series: "700", w: 730, pcs: 594, cost: 0.73, raw: 0.73, div: 1 },
 ];
+
+// SRAU sheet：305W 组件，46mm 边框 672 片（成本 410/305），30mm 边框 1064 片（成本 390/305）
+const SRAU_PRESETS = [
+  { label: "46mm边框", w: 305, pcs: 672, cost: 1.3443 },
+  { label: "30mm边框", w: 305, pcs: 1064, cost: 1.2787 },
+];
+
+// Carports sheet 里出现过的型号
+const CARPORT_MODELS = [450, 455, 500, 510, 620, 625];
+
+const FEE_FIELDS = [
+  ["china_export_fee_per_cabinet_rmb", "中国端费用/柜（RMB）"],
+  ["fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜（RMB）"],
+  ["ocean_freight_per_cabinet_usd", "海运费/柜（USD）"],
+  ["usd_rate", "美元汇率（USD/CNY，海运费换算用）"],
+  ["insurance_rate", "保险费率"],
+  ["destination_fee_per_cabinet_eur", "目的港基础费用/柜（EUR）"],
+  ["ddp_extra_per_cabinet_eur", "DDP附加费用/柜（EUR）"],
+  ["annual_interest_rate", "资金年利率"],
+  ["capital_months", "资金占用月数"],
+  ["capital_ratio", "资金占用比例"],
+  ["company_expense_rate", "公司费用率"],
+];
+
+const BASE_FEES = {
+  china_export_fee_per_cabinet_rmb: "",
+  fob_extra_fee_per_cabinet_rmb: "2000",
+  ocean_freight_per_cabinet_usd: "",
+  usd_rate: "",
+  insurance_rate: "0.0045",
+  destination_fee_per_cabinet_eur: "1400",
+  ddp_extra_per_cabinet_eur: "2000",
+  annual_interest_rate: "0.039",
+  capital_months: "4",
+  capital_ratio: "0.9",
+  company_expense_rate: "0.025",
+};
 
 const TERM_DESC = {
   "EXW": "工厂交货：仅含产品本身",
@@ -296,21 +263,120 @@ const TERM_DESC = {
   "DDP": "完税后交货：含中国端 + 海运保险 + 目的港费用",
 };
 
+const OUTPUTS = [
+  ["数量（W）", "quantity_w"],
+  ["数量（MW）", "quantity_MW"],
+  ["外币收入（EUR）", "foreign_income_eur"],
+  ["总收入（RMB）", "total_income_rmb"],
+  ["总成本（不含税）", "total_cost_excl_tax"],
+  ["中国端费用（RMB）", "china_export_fee"],
+  ["海运+保险（RMB）", "freight_insurance"],
+  ["目的港费用（RMB）", "destination_fee"],
+  ["资金占用利息（RMB）", "capital_interest"],
+  ["公司费用（RMB）", "company_expense"],
+  ["非成本支出费用（RMB）", "total_expense"],
+  ["毛利（RMB）", "gross_profit_rmb"],
+  ["实际毛利率", "gross_margin"],
+  ["净利润（RMB）", "net_profit_rmb"],
+  ["实际净利率", "net_margin"],
+  ["预算利润（RMB）", "budget_profit_rmb"],
+  ["预算利润（EUR）", "budget_profit_eur"],
+];
+
+// Phono 双车位套件装柜数据（来自产品装柜资料）：每套 = 1 个双车位 = 2 个车位；带组件时每套配 15 片组件
+const CARPORT_PACKING = {
+  N: { name: "N型双车位", "40HQ": { sets: 24, setsWithModule: 18, modules: 270 }, "20GP": { sets: 12, setsWithModule: 6, modules: 90 } },
+  L: { name: "L型双车位", "40HQ": { sets: 12, setsWithModule: 9, modules: 135 }, "20GP": { sets: 6, setsWithModule: 3, modules: 45 } },
+};
+
+// Carport 三种计算模式
+const CARPORT_MODES = {
+  bracket: {
+    name: "纯支架",
+    desc: "只算支架，输出支架单价（EUR/W）。",
+  },
+  combo: {
+    name: "支架+组件",
+    desc: "支架和组件同柜装运，运费只算一次（共用费用按成本占比分摊给支架和组件），输出支架单价和组件单价（EUR/W）。",
+  },
+  space: {
+    name: "整车位",
+    desc: "在同柜装运的基础上，把支架+组件作为整体车位报价，使用单独的车位目标利润率，输出车位报价单价（EUR/车位），同时给出支架和组件单价。柜数按装柜容量和车位数自动估算。",
+  },
+};
+
+/* ============ 四个计算工具的配置 ============ */
+// qtyMode: "perCabinet" 数量 = 型号×片数×柜数（片数为每柜片数）；"total" 数量 = 型号×数量（柜数只影响按柜计的费用）
+// costDivisor: 成本含税时表格里按 ÷1.13 计入不含税成本
+const TOOLS = {
+  pv: {
+    name: "PV Module",
+    modelLabel: "型号（W）", modelName: "型号",
+    countLabel: "片数（个）", countName: "片数",
+    costLabel: "成本（RMB/W）", costName: "成本",
+    qtyMode: "perCabinet", costDivisor: 1,
+    fees: { ...BASE_FEES },
+    price: { title: "建议报价单价", unit: "EUR / W", kind: "perW" },
+  },
+  inverter: {
+    name: "Inverter",
+    modelLabel: "Type（W）", modelName: "Type",
+    countLabel: "PCS（个）", countName: "PCS",
+    costLabel: "采购成本（含税，RMB/W，自动 ÷1.13）", costName: "采购成本",
+    qtyMode: "total", costDivisor: 1.13,
+    fees: { ...BASE_FEES, insurance_rate: "0.005", capital_months: "3", capital_ratio: "1" },
+    price: { title: "建议每台单价报价", unit: "EUR / 台", kind: "perUnit" },
+    extraOutputs: [["单价（EUR/W）", "unit_price_eur"]],
+  },
+  carport: {
+    name: "Carport",
+    modelLabel: "型号（W）", modelName: "型号",
+    countLabel: "片数（个）", countName: "片数",
+    costLabel: "支架采购成本（RMB/W）", costName: "支架采购成本",
+    qtyMode: "total", costDivisor: 1,
+    fees: { ...BASE_FEES },
+    price: { title: "建议报价", unit: "", kind: "carport" },
+    extraOutputs: [["整批货单价（EUR/W）", "unit_price_eur"]],
+    // 同柜装运时，支架与组件的拆分明细
+    splitOutputs: [
+      ["采用柜数（个）", "s_cabinets"],
+      ["支架成本占比（共用费用按此分摊）", "s_bracket_share"],
+      ["支架单价（EUR/W）", "s_bracket_price"],
+      ["支架总收入（RMB）", "s_bracket_income"],
+      ["支架总成本（不含税，RMB）", "s_bracket_cost"],
+      ["组件单价（EUR/W）", "s_module_price"],
+      ["组件总收入（RMB）", "s_module_income"],
+      ["组件总成本（RMB）", "s_module_cost"],
+    ],
+  },
+  srau: {
+    name: "SRAU",
+    modelLabel: "型号（W）", modelName: "型号",
+    countLabel: "片数（个）", countName: "片数",
+    costLabel: "成本（RMB/W）", costName: "成本",
+    qtyMode: "perCabinet", costDivisor: 1,
+    fees: { ...BASE_FEES },
+    price: { title: "建议报价单价", unit: "EUR / W", kind: "perW" },
+  },
+};
+
+/* ============ 通用工具函数 ============ */
+const $ = (key, name) => document.getElementById(`${key}__${name}`);
+
 function fmtNum(value, digits = 2) {
   if (!isFinite(value)) return "";
   return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
-
 function fmtPct(value, digits = 2) {
   if (!isFinite(value)) return "";
   return (value * 100).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }) + "%";
 }
 
+// 手机数字键盘可能用逗号当小数点；同时出现逗号和句号时，以最后出现的那个作为小数点。
 function normalizeNumberString(raw) {
   const hasComma = raw.includes(",");
   const hasDot = raw.includes(".");
   if (hasComma && hasDot) {
-    // 同时出现时，以最后出现的符号作为小数点，另一个当千位分隔符去掉
     if (raw.lastIndexOf(",") > raw.lastIndexOf(".")) {
       return raw.replace(/\./g, "").replace(",", ".");
     }
@@ -320,204 +386,865 @@ function normalizeNumberString(raw) {
   return raw;
 }
 
-function parseDecimal(id, label) {
-  const raw = document.getElementById(id).value.trim();
+function readNumber(key, name, label) {
+  const raw = $(key, name).value.trim();
   if (raw === "") throw new Error(`${label}不能为空`);
   const v = Number(normalizeNumberString(raw));
   if (!isFinite(v)) throw new Error(`${label}输入格式不正确：${raw}`);
   return v;
 }
 
-function parsePercent(id, label) {
-  const raw = document.getElementById(id).value.trim();
+// 接受 0.07 / 7 / 7% 三种写法
+function readPercent(key, name, label) {
+  const raw = $(key, name).value.trim();
   if (raw === "") throw new Error(`${label}不能为空`);
   const hasPercentSign = raw.endsWith("%");
-  const cleaned = normalizeNumberString(raw.replace(/%$/, "").trim());
-  const v = Number(cleaned);
+  const v = Number(normalizeNumberString(raw.replace(/%$/, "").trim()));
   if (!isFinite(v)) throw new Error(`${label}输入格式不正确：${raw}`);
   if (hasPercentSign || v > 1) return v / 100;
   return v;
 }
 
-function updateTermDescription() {
-  const term = document.getElementById("trade_term").value;
-  document.getElementById("term_desc").textContent = TERM_DESC[term] || "";
+// 可留空的数字输入：留空返回 null
+function readOptionalNumber(key, name, label) {
+  return $(key, name).value.trim() === "" ? null : readNumber(key, name, label);
 }
 
-function setStatus(text) {
-  document.getElementById("status").textContent = text;
-}
-
+function setStatus(key, text) { $(key, "status").textContent = text; }
 function showError(message) {
   const banner = document.getElementById("errorBanner");
   banner.textContent = message;
   banner.style.display = "block";
 }
-
 function clearError() {
   const banner = document.getElementById("errorBanner");
   banner.style.display = "none";
   banner.textContent = "";
 }
 
-function getTermFeeComponents(term, cabinets, rate) {
-  const chinaExportFeePerCabinet = parseDecimal("china_export_fee_per_cabinet_rmb", "中国端费用/柜");
-  const fobExtraFeePerCabinet = parseDecimal("fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜");
-  const oceanFreightPerCabinet = parseDecimal("ocean_freight_per_cabinet_rmb", "海运费/柜");
-  const destinationFeePerCabinetEur = parseDecimal("destination_fee_per_cabinet_eur", "目的港基础费用/柜");
-  const ddpExtraPerCabinetEur = parseDecimal("ddp_extra_per_cabinet_eur", "DDP附加费用/柜");
+/* ============ 页面生成 ============ */
+// 按系列分组的组件型号下拉项；valuePrefix 用来区分 option 的来源；withPcs=false 时不显示片数（片数来自图纸）
+function modulePresetGroupsHTML(valuePrefix, withPcs) {
+  const seriesLabel = { "440": "440 系列", "500矩形": "500 矩形", "595": "595 系列", "620": "620 系列", "700": "700 系列" };
+  let html = "";
+  let current = null;
+  MODULE_PRESETS.forEach((p, i) => {
+    if (p.series !== current) {
+      if (current !== null) html += "</optgroup>";
+      html += `<optgroup label="${seriesLabel[p.series]}">`;
+      current = p.series;
+    }
+    const note = p.div > 1 ? `（含税${p.raw}÷${p.div}）` : "";
+    html += `<option value="${valuePrefix}${i}">${p.w}W · ${withPcs ? p.pcs + "片 · " : ""}成本${p.cost}${note}</option>`;
+  });
+  return html + "</optgroup>";
+}
 
-  let chinaExportFee = 0;
-  let oceanFreightFixed = 0;
-  let useInsurance = false;
-  let destinationFee = 0;
-
-  if (term === "FCA") {
-    chinaExportFee = chinaExportFeePerCabinet * cabinets;
-  } else if (term === "FOB") {
-    chinaExportFee = (chinaExportFeePerCabinet + fobExtraFeePerCabinet) * cabinets;
-  } else if (term === "CIF") {
-    chinaExportFee = (chinaExportFeePerCabinet + fobExtraFeePerCabinet) * cabinets;
-    oceanFreightFixed = oceanFreightPerCabinet * cabinets;
-    useInsurance = true;
-  } else if (term === "DDP") {
-    chinaExportFee = (chinaExportFeePerCabinet + fobExtraFeePerCabinet) * cabinets;
-    oceanFreightFixed = oceanFreightPerCabinet * cabinets;
-    useInsurance = true;
-    destinationFee = (destinationFeePerCabinetEur + ddpExtraPerCabinetEur) * cabinets * rate;
+function presetOptionsHTML(key) {
+  if (key === "pv") {
+    return '<option value="">快速选择</option>' + modulePresetGroupsHTML("", true);
   }
+  if (key === "srau") {
+    return '<option value="">快速选择</option>' + SRAU_PRESETS.map((p, i) =>
+      `<option value="${i}">${p.w}W · ${p.label} · ${p.pcs}片 · 成本${p.cost}</option>`).join("");
+  }
+  if (key === "carport") {
+    // Carport 表里的型号只带入型号；组件系列的型号同时带入“组件成本”（用于组件单价和整体车位报价）
+    return '<option value="">快速选择</option>'
+      + `<optgroup label="Carport 表型号（仅带入型号）">${CARPORT_MODELS.map((w) => `<option value="c:${w}">${w}W</option>`).join("")}</optgroup>`
+      + modulePresetGroupsHTML("m:", false);
+  }
+  return "";
+}
 
+function fieldText(key, n, label, extra = "", modes = "") {
+  const m = modes ? ` data-modes="${modes}"` : "";
+  return `<div class="field"${m}><label for="${key}__${n}">${label}</label><input type="text" id="${key}__${n}" inputmode="decimal" ${extra}></div>`;
+}
+
+function modelCellHTML(key, T, hasPresets) {
+  return `
+    <div class="field">
+      <label for="${key}__model_w">${T.modelLabel}</label>
+      <div class="inline">
+        <input type="text" id="${key}__model_w" inputmode="decimal">
+        ${hasPresets ? `<select id="${key}__preset" aria-label="快速选择型号">${presetOptionsHTML(key)}</select>` : ""}
+      </div>
+    </div>`;
+}
+
+function rateCellHTML(key) {
+  return `
+    <div class="rate-row">
+      <div class="field">
+        <label for="${key}__rate">汇率（EUR/CNY）</label>
+        <input type="text" id="${key}__rate" inputmode="decimal">
+      </div>
+      <button type="button" class="btn-ghost" onclick="refreshRate('${key}')">刷新实时汇率</button>
+    </div>`;
+}
+
+function termCellHTML(key) {
+  return `
+    <div class="field">
+      <label for="${key}__trade_term">贸易条款</label>
+      <select id="${key}__trade_term">
+        <option value="">请选择</option>
+        ${Object.keys(TERM_DESC).map((t) => `<option value="${t}">${t}</option>`).join("")}
+      </select>
+      <div class="hint" id="${key}__term_desc"></div>
+    </div>`;
+}
+
+function feeCardHTML(key, T) {
+  const cells = FEE_FIELDS.map(([n, label]) => fieldText(key, n, label, `value="${T.fees[n]}"`)).join("");
+  return `
+    <div class="card">
+      <div class="card-title">费用参数</div>
+      <div class="grid2">${cells}</div>
+    </div>`;
+}
+
+function actionsHTML(key) {
+  return `
+    <div class="btn-row">
+      <button type="button" class="btn-primary" onclick="calculate('${key}')">计算结果</button>
+      <button type="button" class="btn-secondary" onclick="clearOutputs('${key}')">清空输出</button>
+    </div>
+    <div class="status" id="${key}__status">准备就绪</div>`;
+}
+
+function outputCardHTML(key, title, list, modes = "") {
+  const m = modes ? ` data-modes="${modes}"` : "";
+  return `
+    <div class="card"${m}>
+      <div class="card-title">${title}</div>
+      <div class="grid2">
+        ${list.map(([label, n]) =>
+          `<div class="field"><label for="${key}__${n}">${label}</label><input type="text" id="${key}__${n}" readonly></div>`).join("")}
+      </div>
+    </div>`;
+}
+
+function buildToolHTML(key) {
+  if (key === "carport") return buildCarportHTML();
+  const T = TOOLS[key];
+  const text = (n, label) => fieldText(key, n, label);
+  const cells = [
+    modelCellHTML(key, T, key !== "inverter"), text("pieces", T.countLabel), text("cabinets", "柜数（个）"), text("cost_rmb", T.costLabel),
+    rateCellHTML(key), termCellHTML(key), text("target_gross_margin", "目标毛利率"), text("target_net_margin", "目标净利率"),
+  ];
+  return `
+    <div class="card">
+      <div class="card-title">输入参数</div>
+      <div class="grid2">${cells.join("")}</div>
+    </div>
+    ${feeCardHTML(key, T)}
+    ${actionsHTML(key)}
+    <div class="card price-card">
+      <div class="card-title">${T.price.title}</div>
+      <div class="price-value" id="${key}__price_value">--</div>
+      <div class="price-unit" id="${key}__price_unit">${T.price.unit}</div>
+      <div class="price-sub" id="${key}__price_sub"></div>
+    </div>
+    ${outputCardHTML(key, "输出结果", [...(T.extraOutputs || []), ...OUTPUTS])}`;
+}
+
+function buildCarportHTML() {
+  const key = "carport", T = TOOLS.carport;
+  const text = (n, label, modes = "") => fieldText(key, n, label, "", modes);
+  const select = (n, label, optionsHTML, modes = "") =>
+    `<div class="field" data-modes="${modes}"><label for="${key}__${n}">${label}</label><select id="${key}__${n}">${optionsHTML}</select></div>`;
+
+  const modeCard = `
+    <div class="card">
+      <div class="card-title">计算模式</div>
+      <div class="seg" id="${key}__mode_seg">
+        ${Object.entries(CARPORT_MODES).map(([m, v]) => `<button type="button" data-mode="${m}">${v.name}</button>`).join("")}
+      </div>
+      <div class="hint" id="${key}__mode_desc"></div>
+    </div>`;
+
+  const uploadCell = `
+    <div class="field span2">
+      <label>图纸识别</label>
+      <button type="button" class="btn-ghost btn-block" onclick="$('carport','file').click()">上传客户图纸（PDF / 图片），自动识别型号和片数</button>
+      <input type="file" id="${key}__file" accept=".pdf,application/pdf,image/*" hidden>
+      <div class="upload-note" id="${key}__upload_status"></div>
+    </div>`;
+
+  const cabinetsCell = `
+    <div class="field">
+      <label for="${key}__cabinets">柜数（个）</label>
+      <input type="text" id="${key}__cabinets" inputmode="decimal">
+      <div class="hint" id="${key}__cabinets_hint"></div>
+    </div>`;
+
+  // 带 data-modes 的输入框只在对应模式下显示
+  const cells = [
+    select("pack_type", "车棚类型（选择后带入装柜容量）", '<option value="">请选择</option>' + Object.entries(CARPORT_PACKING).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join(""), "space"),
+    select("pack_container", "柜型", '<option value="">请选择</option><option value="40HQ">40HQ</option><option value="20GP">20GP</option>', "space"),
+    text("sets_per_cab", "每柜支架套数（套）", "space"),
+    text("mods_per_cab", "每柜组件片数（片）", "space"),
+    modelCellHTML(key, T, true), text("pieces", T.countLabel),
+    uploadCell,
+    text("spaces", "车位数（个）", "space"), fieldText(key, "spaces_per_set", "每套车位数（个）", "", "space"),
+    cabinetsCell,
+    text("cost_rmb", T.costLabel), text("m_cost", "组件成本（RMB/W）", "combo space"),
+    rateCellHTML(key), termCellHTML(key),
+    text("target_gross_margin", "目标毛利率"), text("target_net_margin", "目标净利率"),
+    text("p_target_gross_margin", "车位目标毛利率（整体）", "space"), text("p_target_net_margin", "车位目标净利率（整体）", "space"),
+  ];
+
+  const priceRow = (n, label, modes) =>
+    `<div class="price-row" data-row="${n}" data-modes="${modes}"><span class="price-row-label">${label}</span><span class="price-row-value" id="${key}__price_${n}">--</span></div>`;
+
+  return `
+    ${modeCard}
+    <div class="card">
+      <div class="card-title">输入参数</div>
+      <div class="grid2">${cells.join("")}</div>
+    </div>
+    ${feeCardHTML(key, T)}
+    ${actionsHTML(key)}
+    <div class="card price-card">
+      <div class="card-title">${T.price.title}</div>
+      <div class="price-rows">
+        ${priceRow("bracket", "支架单价（EUR/W）", "bracket combo space")}
+        ${priceRow("module", "组件单价（EUR/W）", "combo space")}
+        ${priceRow("space", "车位报价单价（EUR/车位）", "space")}
+      </div>
+      <div class="price-sub" id="${key}__price_sub"></div>
+    </div>
+    ${outputCardHTML(key, "输出结果（整批货）", [...T.extraOutputs, ...OUTPUTS])}
+    ${outputCardHTML(key, "输出结果（支架 / 组件拆分）", T.splitOutputs, "combo space")}`;
+}
+
+/* ============ 计算 ============ */
+function readFeeContext(key) {
+  return {
+    chinaPerCab: readOptionalNumber(key, "china_export_fee_per_cabinet_rmb", "中国端费用/柜"),
+    fobExtraPerCab: readNumber(key, "fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜"),
+    oceanPerCabUsd: readOptionalNumber(key, "ocean_freight_per_cabinet_usd", "海运费/柜（USD）"),
+    usdRate: readOptionalNumber(key, "usd_rate", "美元汇率"),
+    destPerCabEur: readNumber(key, "destination_fee_per_cabinet_eur", "目的港基础费用/柜"),
+    ddpExtraPerCabEur: readNumber(key, "ddp_extra_per_cabinet_eur", "DDP附加费用/柜"),
+    insuranceRate: readNumber(key, "insurance_rate", "保险费率"),
+    annualRate: readNumber(key, "annual_interest_rate", "资金年利率"),
+    capitalMonths: readNumber(key, "capital_months", "资金占用月数"),
+    capitalRatio: readNumber(key, "capital_ratio", "资金占用比例"),
+    companyRate: readNumber(key, "company_expense_rate", "公司费用率"),
+  };
+}
+
+// 某个贸易条款下，一批货（cabinets 个柜）的固定费用；保险费随收入变化，在 solveOrder 里单独处理
+function termFees(ctx, term, cabinets, rate) {
+  let chinaExportFee = 0, oceanFreightFixed = 0, useInsurance = false, destinationFee = 0;
+  if (term !== "EXW" && ctx.chinaPerCab === null) {
+    throw new Error("中国端费用/柜不能为空（EXW 以外的贸易条款都要填写）");
+  }
+  if (term === "FCA") {
+    chinaExportFee = ctx.chinaPerCab * cabinets;
+  } else if (term === "FOB") {
+    chinaExportFee = (ctx.chinaPerCab + ctx.fobExtraPerCab) * cabinets;
+  } else if (term === "CIF" || term === "DDP") {
+    if (ctx.oceanPerCabUsd === null) throw new Error("海运费/柜（USD）不能为空（CIF、DDP 要填写）");
+    if (ctx.oceanPerCabUsd !== 0 && (ctx.usdRate === null || ctx.usdRate <= 0)) {
+      throw new Error("美元汇率不能为空（海运费按美元计，需要换算成人民币）");
+    }
+    chinaExportFee = (ctx.chinaPerCab + ctx.fobExtraPerCab) * cabinets;
+    oceanFreightFixed = ctx.oceanPerCabUsd * (ctx.usdRate || 0) * cabinets;   // 美元海运费 × USD/CNY → 人民币
+    useInsurance = true;
+    if (term === "DDP") destinationFee = (ctx.destPerCabEur + ctx.ddpExtraPerCabEur) * cabinets * rate;
+  }
   return { chinaExportFee, oceanFreightFixed, useInsurance, destinationFee };
 }
 
-function calculate() {
+// 毛利率/净利率都是"总收入"的占比，保险费、资金占用利息、公司费用均随总收入等比例变化，
+// 因此可以反解出满足目标利润率所需的最小总收入。
+// cost：这批货的不含税总成本；cabinets：柜数（运费等按柜计，同柜装运的货合并成一批，运费只算一次）。
+// targetGross / targetNet 为 null 表示不参与；同时给出时取需要总收入更高的那个，使两项目标都满足。
+function solveOrder({ cost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels }) {
+  const f = termFees(ctx, term, cabinets, rate);
+  const fixedCosts = cost + f.chinaExportFee + f.oceanFreightFixed + f.destinationFee;
+  const insuranceK = f.useInsurance ? ctx.insuranceRate : 0;
+  const capitalK = (ctx.annualRate / 12) * ctx.capitalMonths * ctx.capitalRatio;
+  const companyK = ctx.companyRate;
+
+  const candidates = [];
+  if (targetGross !== null) {
+    const denom = 1 - targetGross - insuranceK - capitalK;
+    if (denom <= 0) throw new Error(`${labels.gross}过高，当前费用结构下无法实现，请降低目标或检查费用参数。`);
+    candidates.push(fixedCosts / denom);
+  }
+  if (targetNet !== null) {
+    const denom = 1 - targetNet - insuranceK - capitalK - companyK;
+    if (denom <= 0) throw new Error(`${labels.net}过高，当前费用结构下无法实现，请降低目标或检查费用参数。`);
+    candidates.push(fixedCosts / denom);
+  }
+  const totalIncomeRmb = Math.max(...candidates);
+
+  const freightInsurance = f.oceanFreightFixed + insuranceK * totalIncomeRmb;
+  const capitalInterest = capitalK * totalIncomeRmb;
+  const companyExpense = companyK * totalIncomeRmb;
+  const totalExpense = f.chinaExportFee + freightInsurance + f.destinationFee + capitalInterest + companyExpense;
+  const grossProfit = totalIncomeRmb - cost - f.chinaExportFee - freightInsurance - f.destinationFee - capitalInterest;
+  const netProfit = totalIncomeRmb - cost - totalExpense;
+  return {
+    totalCost: cost, china: f.chinaExportFee, freightInsurance, dest: f.destinationFee,
+    capitalInterest, companyExpense, totalExpense, grossProfit, netProfit, totalIncomeRmb,
+    foreignIncomeEur: totalIncomeRmb / rate,
+    unitPriceEurPerW: totalIncomeRmb / (rate * quantityW),
+    grossMargin: grossProfit / totalIncomeRmb,
+    netMargin: netProfit / totalIncomeRmb,
+  };
+}
+
+// 可留空的利润率输入：留空返回 null
+function readOptionalPercent(key, name, label) {
+  return $(key, name).value.trim() === "" ? null : readPercent(key, name, label);
+}
+
+// 把一批货的求解结果写进“输出结果”卡片
+function putMainOutputs(key, r, quantityW, rate) {
+  const put = (n, v) => { const el = $(key, n); if (el) el.value = v; };
+  put("unit_price_eur", fmtNum(r.unitPriceEurPerW, 4));
+  put("quantity_w", fmtNum(quantityW, 2));
+  put("quantity_MW", fmtNum(quantityW / 1000000, 6));
+  put("foreign_income_eur", fmtNum(r.foreignIncomeEur, 2));
+  put("total_income_rmb", fmtNum(r.totalIncomeRmb, 2));
+  put("total_cost_excl_tax", fmtNum(r.totalCost, 2));
+  put("china_export_fee", fmtNum(r.china, 2));
+  put("freight_insurance", fmtNum(r.freightInsurance, 2));
+  put("destination_fee", fmtNum(r.dest, 2));
+  put("capital_interest", fmtNum(r.capitalInterest, 2));
+  put("company_expense", fmtNum(r.companyExpense, 2));
+  put("total_expense", fmtNum(r.totalExpense, 2));
+  put("gross_profit_rmb", fmtNum(r.grossProfit, 2));
+  put("gross_margin", fmtPct(r.grossMargin, 2));
+  put("net_profit_rmb", fmtNum(r.netProfit, 2));
+  put("net_margin", fmtPct(r.netMargin, 2));
+  put("budget_profit_rmb", fmtNum(r.netProfit, 2));
+  put("budget_profit_eur", fmtNum(r.netProfit / rate, 2));
+}
+
+function calculate(key) {
+  if (key === "carport") return calculateCarport();
   clearError();
+  const T = TOOLS[key];
   try {
-    const model_w = parseDecimal("model_w", "型号");
-    const pieces = parseDecimal("pieces", "片数");
-    const cabinets = parseDecimal("cabinets", "柜数");
-    const rate = parseDecimal("rate", "汇率");
-    const cost_rmb = parseDecimal("cost_rmb", "成本");
-    const trade_term = document.getElementById("trade_term").value;
-    if (!trade_term) throw new Error("请选择贸易条款");
+    const modelW = readNumber(key, "model_w", T.modelName);
+    const count = readNumber(key, "pieces", T.countName);
+    const cabinets = readNumber(key, "cabinets", "柜数");
+    const rate = readNumber(key, "rate", "汇率");
+    const costRmb = readNumber(key, "cost_rmb", T.costName);
+    const term = $(key, "trade_term").value;
+    if (!term) throw new Error("请选择贸易条款");
     if (rate === 0) throw new Error("汇率不能为0");
 
-    const target_gross_margin = parsePercent("target_gross_margin", "目标毛利率");
-    const target_net_margin = parsePercent("target_net_margin", "目标净利率");
+    const targetGross = readPercent(key, "target_gross_margin", "目标毛利率");
+    const targetNet = readPercent(key, "target_net_margin", "目标净利率");
+    const ctx = readFeeContext(key);
 
-    const annual_interest_rate = parseDecimal("annual_interest_rate", "资金年利率");
-    const capital_months = parseDecimal("capital_months", "资金占用月数");
-    const capital_ratio = parseDecimal("capital_ratio", "资金占用比例");
-    const company_expense_rate = parseDecimal("company_expense_rate", "公司费用率");
-    const insurance_rate = parseDecimal("insurance_rate", "保险费率");
-
-    const quantity_w = model_w * pieces * cabinets;
-    if (quantity_w === 0) throw new Error("型号/片数/柜数不能为0");
-    const quantity_MW = quantity_w / 1000000;
-    const total_cost_excl_tax = model_w * cost_rmb * pieces * cabinets;
-
-    const { chinaExportFee, oceanFreightFixed, useInsurance, destinationFee } =
-      getTermFeeComponents(trade_term, cabinets, rate);
-    const fixed_costs = total_cost_excl_tax + chinaExportFee + oceanFreightFixed + destinationFee;
-
-    const insurance_k = useInsurance ? insurance_rate : 0;
-    const capital_k = (annual_interest_rate / 12) * capital_months * capital_ratio;
-    const company_k = company_expense_rate;
-
-    const denom_gross = 1 - target_gross_margin - insurance_k - capital_k;
-    const denom_net = 1 - target_net_margin - insurance_k - capital_k - company_k;
-
-    if (denom_gross <= 0) throw new Error("目标毛利率过高，当前费用结构下无法实现，请降低目标或检查费用参数。");
-    if (denom_net <= 0) throw new Error("目标净利率过高，当前费用结构下无法实现，请降低目标或检查费用参数。");
-
-    const required_income_gross = fixed_costs / denom_gross;
-    const required_income_net = fixed_costs / denom_net;
-
-    // 两个目标利润率必须同时满足，取需要总收入更高的那个作为最终定价依据。
-    const total_income_rmb = Math.max(required_income_gross, required_income_net);
-
-    const unit_price_eur = total_income_rmb / (rate * quantity_w);
-    const foreign_income_eur = total_income_rmb / rate;
-
-    const freight_insurance = oceanFreightFixed + insurance_k * total_income_rmb;
-    const capital_interest = capital_k * total_income_rmb;
-    const company_expense = company_k * total_income_rmb;
-    const total_expense = chinaExportFee + freight_insurance + destinationFee + capital_interest + company_expense;
-
-    const gross_profit_rmb = total_income_rmb - total_cost_excl_tax - chinaExportFee
-      - freight_insurance - destinationFee - capital_interest;
-    const gross_margin = gross_profit_rmb / total_income_rmb;
-
-    const net_profit_rmb = total_income_rmb - total_cost_excl_tax - total_expense;
-    const net_margin = net_profit_rmb / total_income_rmb;
-
-    const budget_profit_rmb = net_profit_rmb;
-    const budget_profit_eur = budget_profit_rmb / rate;
-
-    document.getElementById("unit_price_eur").textContent = fmtNum(unit_price_eur, 4);
-
-    const vals = {
-      quantity_w: fmtNum(quantity_w, 2),
-      quantity_MW: fmtNum(quantity_MW, 6),
-      foreign_income_eur: fmtNum(foreign_income_eur, 2),
-      total_income_rmb: fmtNum(total_income_rmb, 2),
-      total_cost_excl_tax: fmtNum(total_cost_excl_tax, 2),
-      china_export_fee: fmtNum(chinaExportFee, 2),
-      freight_insurance: fmtNum(freight_insurance, 2),
-      destination_fee: fmtNum(destinationFee, 2),
-      capital_interest: fmtNum(capital_interest, 2),
-      company_expense: fmtNum(company_expense, 2),
-      total_expense: fmtNum(total_expense, 2),
-      gross_profit_rmb: fmtNum(gross_profit_rmb, 2),
-      gross_margin: fmtPct(gross_margin, 2),
-      net_profit_rmb: fmtNum(net_profit_rmb, 2),
-      net_margin: fmtPct(net_margin, 2),
-      budget_profit_rmb: fmtNum(budget_profit_rmb, 2),
-      budget_profit_eur: fmtNum(budget_profit_eur, 2),
-    };
-    for (const [k, v] of Object.entries(vals)) {
-      document.getElementById(k).value = v;
+    const quantityW = T.qtyMode === "perCabinet" ? modelW * count * cabinets : modelW * count;
+    if (quantityW === 0) {
+      throw new Error(T.qtyMode === "perCabinet" ? "型号/片数/柜数不能为0" : `${T.modelName}/${T.countName}不能为0`);
     }
+    const r = solveOrder({
+      cost: quantityW * costRmb / T.costDivisor, cabinets, quantityW, rate, term, ctx, targetGross, targetNet,
+      labels: { gross: "目标毛利率", net: "目标净利率" },
+    });
+    putMainOutputs(key, r, quantityW, rate);
 
-    setStatus(`计算完成：当前条款 ${trade_term}`);
+    const value = $(key, "price_value"), unit = $(key, "price_unit"), sub = $(key, "price_sub");
+    if (T.price.kind === "perUnit") {
+      value.textContent = fmtNum(r.unitPriceEurPerW * modelW, 2);
+      unit.textContent = "EUR / 台";
+      sub.textContent = `单价 ${fmtNum(r.unitPriceEurPerW, 4)} EUR/W × ${fmtNum(modelW, 0)} W`;
+    } else {
+      value.textContent = fmtNum(r.unitPriceEurPerW, 4);
+      unit.textContent = "EUR / W";
+      sub.textContent = "";
+    }
+    setStatus(key, `计算完成：当前条款 ${term}`);
   } catch (e) {
     showError(e.message);
-    setStatus("计算失败");
+    setStatus(key, "计算失败");
   }
 }
 
-function clearOutputs() {
-  document.getElementById("unit_price_eur").textContent = "--";
-  for (const id of OUTPUT_IDS) {
-    document.getElementById(id).value = "";
+// Carport 三种模式：
+//  bracket：纯支架；
+//  combo  ：支架+组件同柜装运，运费只算一次，共用费用按成本占比分摊给支架和组件，分别得到 EUR/W 单价；
+//  space  ：在 combo 的基础上，整体按单独的车位目标利润率定价，得到 EUR/车位。
+function calculateCarport() {
+  const key = "carport";
+  clearError();
+  const T = TOOLS.carport;
+  try {
+    const mode = carportMode;
+    const modelW = readNumber(key, "model_w", "型号");
+    const count = readNumber(key, "pieces", "片数");
+    const cabinets = readNumber(key, "cabinets", "柜数");
+    const rate = readNumber(key, "rate", "汇率");
+    const bracketCostPerW = readNumber(key, "cost_rmb", "支架采购成本");
+    const term = $(key, "trade_term").value;
+    if (!term) throw new Error("请选择贸易条款");
+    if (rate === 0) throw new Error("汇率不能为0");
+
+    const targetGross = readPercent(key, "target_gross_margin", "目标毛利率");
+    const targetNet = readPercent(key, "target_net_margin", "目标净利率");
+    const ctx = readFeeContext(key);
+
+    let spaces = null;
+    if (mode === "space" && $(key, "spaces").value.trim() !== "") {
+      spaces = readNumber(key, "spaces", "车位数");
+      if (spaces <= 0) throw new Error("车位数必须大于0");
+    }
+
+    const quantityW = modelW * count;
+    if (quantityW === 0) throw new Error("型号/片数不能为0");
+    const labels = { gross: "目标毛利率", net: "目标净利率" };
+    const bracketCost = quantityW * bracketCostPerW / T.costDivisor;
+
+    let primary, bracketPrice, modulePrice = null, split = null, ownTargets = false;
+    if (mode === "bracket") {
+      primary = solveOrder({ cost: bracketCost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels });
+      bracketPrice = primary.unitPriceEurPerW;
+    } else {
+      const moduleCost = quantityW * readNumber(key, "m_cost", "组件成本");
+      const batchCost = bracketCost + moduleCost;
+      if (batchCost <= 0) throw new Error("支架和组件的成本必须大于0");
+      // 同柜装运：支架+组件合成一批货，柜数（运费）只算一次
+      primary = solveOrder({ cost: batchCost, cabinets, quantityW, rate, term, ctx, targetGross, targetNet, labels });
+      const bracketShare = bracketCost / batchCost;
+      const bracketIncome = primary.totalIncomeRmb * bracketShare;
+      const moduleIncome = primary.totalIncomeRmb - bracketIncome;
+      bracketPrice = bracketIncome / (rate * quantityW);
+      modulePrice = moduleIncome / (rate * quantityW);
+      split = { bracketShare, bracketIncome, moduleIncome, bracketCost, moduleCost };
+
+      if (mode === "space") {
+        const pg = readOptionalPercent(key, "p_target_gross_margin", "车位目标毛利率");
+        const pn = readOptionalPercent(key, "p_target_net_margin", "车位目标净利率");
+        ownTargets = pg !== null || pn !== null;
+        primary = solveOrder({
+          cost: batchCost, cabinets, quantityW, rate, term, ctx,
+          targetGross: ownTargets ? pg : targetGross,
+          targetNet: ownTargets ? pn : targetNet,
+          labels: ownTargets ? { gross: "车位目标毛利率", net: "车位目标净利率" } : labels,
+        });
+      }
+    }
+
+    putMainOutputs(key, primary, quantityW, rate);
+    const put = (n, v) => { $(key, n).value = v; };
+    put("s_cabinets", fmtNum(cabinets, 0));
+    put("s_bracket_share", split ? fmtPct(split.bracketShare, 1) : "");
+    put("s_bracket_price", split ? fmtNum(bracketPrice, 4) : "");
+    put("s_bracket_income", split ? fmtNum(split.bracketIncome, 2) : "");
+    put("s_bracket_cost", split ? fmtNum(split.bracketCost, 2) : "");
+    put("s_module_price", split ? fmtNum(modulePrice, 4) : "");
+    put("s_module_income", split ? fmtNum(split.moduleIncome, 2) : "");
+    put("s_module_cost", split ? fmtNum(split.moduleCost, 2) : "");
+
+    $(key, "price_bracket").textContent = fmtNum(bracketPrice, 4);
+    $(key, "price_module").textContent = modulePrice === null ? "--" : fmtNum(modulePrice, 4);
+    const notes = [];
+    if (mode === "combo") {
+      notes.push(`同柜装运：运费只算一次，共用费用按成本占比分摊（支架 ${fmtPct(split.bracketShare, 1)}）`);
+    } else if (mode === "space") {
+      if (spaces) {
+        $(key, "price_space").textContent = fmtNum(primary.foreignIncomeEur / spaces, 2);
+        notes.push(`整体 ${fmtNum(primary.unitPriceEurPerW, 4)} EUR/W · 共 ${fmtNum(spaces, 0)} 个车位`);
+      } else {
+        $(key, "price_space").textContent = "--";
+        notes.push("填写“车位数”后显示车位报价单价");
+      }
+      if (!ownTargets) notes.push("未填车位目标利润率：车位报价按单项目标计算");
+    }
+    $(key, "price_sub").textContent = notes.join("\n");
+    setStatus(key, `计算完成：${CARPORT_MODES[mode].name}，当前条款 ${term}`);
+  } catch (e) {
+    showError(e.message);
+    setStatus(key, "计算失败");
   }
-  setStatus("输出已清空");
+}
+
+function clearOutputs(key) {
+  const T = TOOLS[key];
+  [...(T.extraOutputs || []), ...OUTPUTS, ...(T.splitOutputs || [])].forEach(([, n]) => { $(key, n).value = ""; });
+  if (T.price.kind === "carport") {
+    ["price_bracket", "price_module", "price_space"].forEach((n) => { $(key, n).textContent = "--"; });
+  } else {
+    $(key, "price_value").textContent = "--";
+    $(key, "price_unit").textContent = T.price.unit;
+  }
+  $(key, "price_sub").textContent = "";
+  setStatus(key, "输出已清空");
   clearError();
 }
 
-async function refreshRate(auto = false) {
-  setStatus("正在获取实时汇率…");
-  try {
-    const resp = await fetch("https://api.frankfurter.dev/v1/latest?from=EUR&to=CNY");
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    const rate = data.rates && data.rates.CNY;
-    if (!rate) throw new Error("响应中未找到CNY汇率");
-    document.getElementById("rate").value = rate;
-    setStatus(`已获取实时 EUR/CNY：${rate}（数据源：frankfurter.dev，基于ECB参考汇率）`);
-  } catch (e) {
-    if (!document.getElementById("rate").value.trim()) {
-      document.getElementById("rate").value = "8";
+/* ============ 汇率 ============ */
+async function fetchCnyRate(from) {
+  const resp = await fetch(`https://api.frankfurter.dev/v1/latest?from=${from}&to=CNY`);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const data = await resp.json();
+  const rate = data.rates && data.rates.CNY;
+  if (!rate) throw new Error("响应中未找到CNY汇率");
+  return rate;
+}
+
+// 同时刷新欧元汇率（EUR/CNY，报价收入用）和美元汇率（USD/CNY，海运费换算用）
+async function refreshRate(key) {
+  const keys = key ? [key] : Object.keys(TOOLS);
+  keys.forEach((k) => setStatus(k, "正在获取实时汇率…"));
+  const [eur, usd] = await Promise.allSettled([fetchCnyRate("EUR"), fetchCnyRate("USD")]);
+  const notes = [], failures = [];
+  [[eur, "rate", "EUR/CNY", "8"], [usd, "usd_rate", "USD/CNY", ""]].forEach(([result, field, label, fallback]) => {
+    if (result.status === "fulfilled") {
+      Object.keys(TOOLS).forEach((k) => { $(k, field).value = result.value; });
+      notes.push(`${label} ${result.value}`);
+    } else {
+      failures.push(`${label}：${result.reason.message}`);
+      if (fallback) Object.keys(TOOLS).forEach((k) => { if (!$(k, field).value.trim()) $(k, field).value = fallback; });
     }
-    setStatus(`汇率获取失败，已保留手动值。原因：${e.message}`);
-    if (!auto) {
-      showError(`未能自动获取汇率，请检查网络或稍后重试，也可手动输入。\n\n原因：${e.message}`);
+  });
+  let msg = notes.length ? `已获取实时汇率：${notes.join("；")}（数据源：frankfurter.dev，基于ECB参考汇率）` : "";
+  if (failures.length) msg += (msg ? "；" : "") + `汇率获取失败，已保留手动值（${failures.join("；")}）`;
+  keys.forEach((k) => setStatus(k, msg));
+  if (key && failures.length) showError(`未能自动获取汇率，请检查网络或稍后重试，也可手动输入。\n\n${failures.join("\n")}`);
+}
+
+/* ============ 图纸识别（Carport） ============ */
+const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const TESS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
+const scriptPromises = {};
+
+function loadScript(src) {
+  if (!scriptPromises[src]) {
+    scriptPromises[src] = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => { delete scriptPromises[src]; reject(new Error("无法加载识别组件，请检查网络后重试")); };
+      document.head.appendChild(s);
+    });
+  }
+  return scriptPromises[src];
+}
+
+// 在图纸文字里找“Solarmodule”一段：功率（W）+ 数量（Stk），并用图纸上的 DC 功率交叉校验。
+function parseDrawingText(raw) {
+  const text = raw.replace(/ /g, " ");
+  const anchorRe = /(Solarmodul\w*|PV[- ]?Modul\w*|Photovoltaic modules?|PV modules?|Solar modules?|光伏组件)/gi;
+  const stopRe = /(Wechselrichter|Inverter|C&I|Speicher|Battery|Legende|Legend|逆变器|储能)/i;
+  let m, found = null;
+  while ((m = anchorRe.exec(text)) && !found) {
+    let win = text.slice(m.index + m[0].length, m.index + m[0].length + 700);
+    const stop = win.search(stopRe);
+    if (stop > 15) win = win.slice(0, stop);
+
+    const pw = win.match(/(?:Leistung|Power|Nennleistung|功率)\s*[:：]?\s*(\d{1,4}(?:[.,]\d+)?)\s*(kWp|kW|Wp|W)\b/i);
+    if (!pw) continue;
+    let watt = Number(pw[1].replace(",", "."));
+    if (/^kw/i.test(pw[2]) && watt < 20) watt *= 1000;   // 图纸里常把 635 W 写成 “635 kWp”
+    if (!(watt >= 100 && watt <= 1000)) continue;
+
+    const cnt = win.match(/(?:Anzahl|Quantity|Qty|数量)\s*[:：]?\s*(\d{1,6})/i)
+      || win.match(/(\d{1,6})\s*(?:Stk|Stück|pcs|pieces|片|块)/i);
+    found = { watt, count: cnt ? Number(cnt[1]) : null };
+  }
+  if (!found) return null;
+
+  const dc = text.match(/DC\s*-?\s*(?:Leistung|Power)\s*[:：]?\s*(\d{1,5}(?:[.,]\d+)?)\s*kWp/i);
+  if (dc) {
+    const expected = Number(dc[1].replace(",", ".")) * 1000 / found.watt;
+    const clean = Math.abs(expected - Math.round(expected)) < 0.1;
+    if (found.count === null && clean) {
+      found.count = Math.round(expected);
+      found.note = `片数由图纸 DC 功率 ${dc[1]} kWp ÷ ${found.watt} W 推算`;
+    } else if (found.count !== null && Math.abs(found.count - expected) <= 0.6) {
+      found.note = `与图纸 DC 功率 ${dc[1]} kWp 校验一致`;
+    } else if (found.count !== null && clean) {
+      found.note = `识别到 ${found.count} 片，但与 DC 功率 ${dc[1]} kWp 推算的 ${Math.round(expected)} 片不一致，已按 ${Math.round(expected)} 片填入，请核对图纸`;
+      found.count = Math.round(expected);
+    } else if (found.count !== null) {
+      found.note = `注意：${found.watt} W × ${found.count} 片与图纸 DC 功率 ${dc[1]} kWp 对不上，请人工核对`;
+    }
+  }
+  return found.count === null ? null : found;
+}
+
+function cropCanvas(src, [x0, y0, x1, y1]) {
+  const c = document.createElement("canvas");
+  c.width = Math.round(src.width * (x1 - x0));
+  c.height = Math.round(src.height * (y1 - y0));
+  c.getContext("2d").drawImage(src, Math.round(src.width * x0), Math.round(src.height * y0), c.width, c.height, 0, 0, c.width, c.height);
+  return c;
+}
+
+async function fileToCanvas(file, onStatus) {
+  const targetWidth = 4000;
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  if (isPdf) {
+    onStatus("正在读取 PDF…");
+    await loadScript(PDFJS_SRC);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    return { pdf, canvas: null };
+  }
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(2, targetWidth / bmp.width);
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * scale);
+  c.height = Math.round(bmp.height * scale);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return { pdf: null, canvas: c };
+}
+
+async function analyzeDrawing(file, onStatus) {
+  let { pdf, canvas } = await fileToCanvas(file, onStatus);
+  if (pdf) {
+    // 1) 先试 PDF 自带的文字层
+    let layerText = "";
+    for (let p = 1; p <= Math.min(pdf.numPages, 3); p++) {
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      layerText += "\n" + tc.items.map((i) => i.str).join("\n");
+    }
+    const direct = parseDrawingText(layerText);
+    if (direct) return { ...direct, via: "PDF文字" };
+    // 2) 文字层里没有（图纸里的参数表常被转成图片）：渲染第 1 页做 OCR
+    onStatus("正在渲染图纸…");
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: 4000 / base.width });
+    canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+  }
+
+  onStatus("正在识别图纸文字（首次需下载识别组件，约十几秒）…");
+  await loadScript(TESS_SRC);
+  const worker = await Tesseract.createWorker("eng", 1, {
+    logger: (m) => { if (m.status === "recognizing text") onStatus(`正在识别图纸文字… ${Math.round(m.progress * 100)}%`); },
+  });
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: "6" });
+    // 参数表通常在图纸右侧或左侧；先识别这些区域，找不到再扫整页。
+    const regions = [[0.7, 0, 1, 0.7], [0, 0, 0.3, 0.7], [0.7, 0.3, 1, 1], [0, 0, 1, 1]];
+    let allText = "";
+    for (const r of regions) {
+      const { data } = await worker.recognize(cropCanvas(canvas, r));
+      allText += "\n" + data.text;
+      const found = parseDrawingText(allText);
+      if (found) return { ...found, via: "OCR" };
+    }
+  } finally {
+    await worker.terminate();
+  }
+  return null;
+}
+
+async function handleDrawingFile(file) {
+  const key = "carport";
+  const status = $(key, "upload_status");
+  const onStatus = (t) => { status.textContent = t; };
+  try {
+    onStatus("正在分析图纸…");
+    const info = await analyzeDrawing(file, onStatus);
+    if (!info) {
+      onStatus("没有在图纸里找到组件功率和数量，请手动输入型号和片数。");
+      return;
+    }
+    $(key, "model_w").value = info.watt;
+    $(key, "pieces").value = info.count;
+    $(key, "preset").value = "";
+    updateCabinetEstimate();
+    onStatus(`已识别（${info.via}）：${info.watt} W × ${info.count} 片，已填入，请核对。${info.note ? "\n" + info.note : ""}`);
+  } catch (e) {
+    onStatus(`识别失败：${e.message}。请手动输入型号和片数。`);
+  }
+}
+
+/* ============ Carport 界面逻辑：模式切换、装柜容量、柜数估算（整车位） ============ */
+let carportMode = "bracket";
+let cabinetsDirty = false;   // 用户手动输入过柜数后，不再自动覆盖
+
+function applyModeVisibility() {
+  document.querySelectorAll("#tool-carport [data-modes]").forEach((el) => {
+    el.hidden = !el.dataset.modes.split(" ").includes(carportMode);
+  });
+  // 价格卡片：整车位模式突出车位报价；其他模式突出支架/组件单价
+  document.querySelectorAll("#tool-carport .price-row").forEach((row) => {
+    row.classList.toggle("main", carportMode === "space" ? row.dataset.row === "space" : row.dataset.row !== "space");
+  });
+}
+
+// 车棚类型和柜型都选了以后，带入带组件时的每柜容量和每套车位数（可再手动修改）；没选就不动，由你自己填
+function applyCarportPacking() {
+  const type = $("carport", "pack_type").value, container = $("carport", "pack_container").value;
+  if (!type || !container) return;
+  const p = CARPORT_PACKING[type][container];
+  $("carport", "sets_per_cab").value = p.setsWithModule;
+  $("carport", "mods_per_cab").value = p.modules;
+  $("carport", "spaces_per_set").value = 2;   // 一套 = 一个双车位 = 2 个车位
+}
+
+// 整车位模式：按车位数和片数，用每柜容量估算柜数（支架和组件同柜，取较大者）
+function updateCabinetEstimate() {
+  if (carportMode !== "space") return;
+  const key = "carport";
+  const num = (n) => {
+    const raw = $(key, n).value.trim();
+    if (raw === "") return null;
+    const v = Number(normalizeNumberString(raw));
+    return isFinite(v) && v > 0 ? v : null;
+  };
+  const ceilCab = (x) => Math.max(1, Math.ceil(x - 1e-9));
+  const spaces = num("spaces"), setsPerCab = num("sets_per_cab"), spacesPerSet = num("spaces_per_set") || 2;
+  const pieces = num("pieces"), modsPerCab = num("mods_per_cab");
+  const cabinets = $(key, "cabinets"), hint = $(key, "cabinets_hint");
+
+  const parts = [];
+  if (spaces && setsPerCab) {
+    const sets = spaces / spacesPerSet;
+    const n = ceilCab(sets / setsPerCab);
+    parts.push({ n, text: `车位 ${fmtNum(spaces, 0)} ÷ ${spacesPerSet} = ${fmtNum(sets, 1)} 套，每柜 ${setsPerCab} 套 → ${n} 柜` });
+  }
+  if (pieces && modsPerCab) {
+    const n = ceilCab(pieces / modsPerCab);
+    parts.push({ n, text: `组件 ${fmtNum(pieces, 0)} 片，每柜 ${modsPerCab} 片 → ${n} 柜` });
+  }
+  if (!parts.length) {
+    hint.textContent = "选择车棚类型和柜型（或手动填每柜容量），再填车位数和片数，即可自动估算柜数；也可以直接手动输入柜数。";
+    if (!cabinetsDirty) cabinets.value = "";
+    return;
+  }
+  const est = Math.max(...parts.map((p) => p.n));
+  hint.textContent = "估算：" + parts.map((p) => p.text).join("；") + (parts.length > 1 ? ` → 取 ${est} 柜` : "")
+    + (cabinetsDirty ? `（当前为手动输入，估算值 ${est}）` : "");
+  if (!cabinetsDirty) cabinets.value = est;
+}
+
+function setCarportMode(mode) {
+  const cabinets = $("carport", "cabinets");
+  carportMode = mode;
+  document.querySelectorAll("#carport__mode_seg button").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+  $("carport", "mode_desc").textContent = CARPORT_MODES[mode].desc;
+  applyModeVisibility();
+  if (mode === "space") {
+    applyCarportPacking();
+    cabinetsDirty = cabinets.value.trim() !== "";   // 之前手动填的柜数保留，作为手动输入
+    updateCabinetEstimate();
+  } else {
+    if (!cabinetsDirty) cabinets.value = "";          // 清掉整车位模式自动估算的柜数
+    $("carport", "cabinets_hint").textContent = mode === "combo" ? "支架和组件同柜装运，运费只算一次。" : "";
+  }
+  clearOutputs("carport");
+  setStatus("carport", "准备就绪");
+}
+
+function initCarport() {
+  const key = "carport";
+  document.querySelectorAll("#carport__mode_seg button").forEach((b) => b.addEventListener("click", () => setCarportMode(b.dataset.mode)));
+  ["pack_type", "pack_container"].forEach((n) => $(key, n).addEventListener("change", () => {
+    applyCarportPacking();
+    cabinetsDirty = false;
+    updateCabinetEstimate();
+  }));
+  ["spaces", "sets_per_cab", "mods_per_cab", "spaces_per_set", "pieces"].forEach((n) => $(key, n).addEventListener("input", updateCabinetEstimate));
+  $(key, "cabinets").addEventListener("input", () => {
+    cabinetsDirty = $(key, "cabinets").value.trim() !== "";   // 清空后恢复自动估算
+    updateCabinetEstimate();
+  });
+  setCarportMode("bracket");
+}
+
+/* ============ 初始化 ============ */
+function applyPreset(key, value) {
+  if (value === "") return;
+  if (key === "pv" || key === "srau") {
+    const p = (key === "pv" ? MODULE_PRESETS : SRAU_PRESETS)[Number(value)];
+    if (!p) return;
+    $(key, "model_w").value = p.w;
+    $(key, "pieces").value = p.pcs;
+    $(key, "cost_rmb").value = p.cost;
+  } else if (key === "carport") {
+    if (value.startsWith("c:")) {
+      $(key, "model_w").value = value.slice(2);
+    } else if (value.startsWith("m:")) {
+      // 组件系列的型号：同时带入组件成本（用于模式 2、3）
+      const p = MODULE_PRESETS[Number(value.slice(2))];
+      if (!p) return;
+      $(key, "model_w").value = p.w;
+      $(key, "m_cost").value = p.cost;
     }
   }
 }
 
-refreshRate(true);
-</script>
+function switchTool(key) {
+  Object.keys(TOOLS).forEach((k) => { document.getElementById(`tool-${k}`).hidden = k !== key; });
+  document.getElementById("toolPill").textContent = TOOLS[key].name;
+  document.querySelectorAll("#settingsMenu button").forEach((b) => b.classList.toggle("active", b.dataset.tool === key));
+  clearError();
+  try { localStorage.setItem("quote_tool_active", key); } catch (e) { /* 忽略 */ }
+}
 
+function init() {
+  const app = document.getElementById("app");
+  Object.keys(TOOLS).forEach((key) => {
+    const section = document.createElement("section");
+    section.id = `tool-${key}`;
+    section.hidden = true;
+    section.innerHTML = buildToolHTML(key);
+    app.appendChild(section);
+
+    const preset = $(key, "preset");
+    if (preset) {
+      preset.addEventListener("change", () => applyPreset(key, preset.value));
+      // 手动改动后，快速选择恢复为“快速选择”，避免显示的选项和实际数值不一致
+      const watched = key === "carport" ? ["model_w", "m_cost"] : ["model_w", "pieces", "cost_rmb"];
+      watched.forEach((n) => $(key, n).addEventListener("input", () => { preset.value = ""; }));
+    }
+    $(key, "trade_term").addEventListener("change", () => {
+      $(key, "term_desc").textContent = TERM_DESC[$(key, "trade_term").value] || "";
+    });
+  });
+
+  initCarport();
+
+  $("carport", "file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (f) handleDrawingFile(f);
+    e.target.value = "";
+  });
+
+  const btn = document.getElementById("settingsBtn");
+  const menu = document.getElementById("settingsMenu");
+  const closeMenu = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    btn.setAttribute("aria-expanded", String(!menu.hidden));
+  });
+  menu.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { switchTool(b.dataset.tool); closeMenu(); }));
+  document.addEventListener("click", closeMenu);
+
+  let active = "pv";
+  try { const saved = localStorage.getItem("quote_tool_active"); if (TOOLS[saved]) active = saved; } catch (e) { /* 忽略 */ }
+  switchTool(active);
+
+  refreshRate(null);
+}
+
+init();
+</script>
 </body>
 </html>
