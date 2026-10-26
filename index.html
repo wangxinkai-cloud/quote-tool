@@ -332,8 +332,8 @@ const TOOLS = {
     name: "Carport",
     modelLabel: "型号（W）", modelName: "型号",
     countLabel: "片数（个）", countName: "片数",
-    costLabel: "支架采购成本（RMB/W）", costName: "支架采购成本",
-    qtyMode: "total", costDivisor: 1,
+    costLabel: "支架采购成本（含税，RMB/W）", costName: "支架采购成本",
+    qtyMode: "total", costDivisor: 1.13,
     fees: { ...BASE_FEES },
     price: { title: "建议报价", unit: "", kind: "carport" },
     extraOutputs: [["整批货单价（EUR/W）", "unit_price_eur"]],
@@ -408,6 +408,16 @@ function readPercent(key, name, label) {
 // 可留空的数字输入：留空返回 null
 function readOptionalNumber(key, name, label) {
   return $(key, name).value.trim() === "" ? null : readNumber(key, name, label);
+}
+
+// 数字输入框离开后，把手机键盘打出的 2,5 / 1,199.3 整理成标准小数 2.5 / 1199.3（计算本来就认这两种写法，这里只是让显示一致）
+function tidyNumberInput(el) {
+  const raw = el.value.trim();
+  if (!/^[\d.,]+%?$/.test(raw)) return;
+  const pct = raw.endsWith("%");
+  const body = pct ? raw.slice(0, -1) : raw;
+  const fixed = normalizeNumberString(body);
+  if (fixed !== body && isFinite(Number(fixed))) el.value = fixed + (pct ? "%" : "");
 }
 
 function setStatus(key, text) { $(key, "status").textContent = text; }
@@ -1198,6 +1208,9 @@ function switchTool(key) {
 }
 
 function init() {
+  document.addEventListener("change", (e) => {
+    if (e.target.matches('input[inputmode="decimal"]')) tidyNumberInput(e.target);
+  });
   const app = document.getElementById("app");
   Object.keys(TOOLS).forEach((key) => {
     const section = document.createElement("section");
