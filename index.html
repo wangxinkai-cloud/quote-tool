@@ -268,7 +268,6 @@ const CARPORT_MODELS = [450, 455, 500, 510, 620, 625];
 
 const FEE_FIELDS = [
   ["china_export_fee_per_cabinet_rmb", "中国端费用/柜（RMB，国内运费）"],
-  ["fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜（RMB，没有可不填）"],
   ["ocean_freight_per_cabinet_usd", "海运费/柜（USD）"],
   ["eur_usd_rate", "EUR:USD 换算汇率（美元海运费折欧元；填了就不再用下面的美元汇率）"],
   ["usd_rate", "美元汇率（USD/CNY，海运费换算用；EUR:USD 留空时才用）"],
@@ -278,14 +277,13 @@ const FEE_FIELDS = [
   ["cargo_insurance_rate", "货运险费率（按货值 110%）"],
   ["annual_interest_rate", "资金年利率"],
   ["capital_months", "资金占用月数（账期）"],
-  ["company_expense_rate", "公司费用率（表格里已关闭，填 0 即不计）"],
-  ["other_fee_eur", "其他费用（EUR，整批货，没有可不填）"],
+  ["company_expense_rate", "公司费用率"],
+  ["other_fee_eur", "其他费用（EUR）"],
 ];
 
 // 默认值来自最新表格：保费 = 0.55% ×（1 − 预付款比例）+ 0.015% × 110%；资金占用利息 = 2.7% × 3 ÷ 12 ×（1 − 预付款比例）；公司费用 2.5%
 const BASE_FEES = {
   china_export_fee_per_cabinet_rmb: "",
-  fob_extra_fee_per_cabinet_rmb: "",
   ocean_freight_per_cabinet_usd: "",
   eur_usd_rate: "1.12",
   usd_rate: "",
@@ -310,7 +308,6 @@ const TERM_DESC = {
 // 各项费用只在这些贸易条款下才会用到；选了别的条款，对应输入框锁定（灰色、不能输入）
 const FEE_RELEVANCE = {
   china_export_fee_per_cabinet_rmb: ["FCA", "FOB", "CIF", "DDP"],
-  fob_extra_fee_per_cabinet_rmb: ["FOB", "CIF", "DDP"],
   ocean_freight_per_cabinet_usd: ["CIF", "DDP"],
   eur_usd_rate: ["CIF", "DDP"],
   usd_rate: ["CIF", "DDP"],
@@ -771,7 +768,6 @@ function buildCarportHTML() {
 function readFeeContext(key, term, taxCtx) {
   const rel = (name) => FEE_RELEVANCE[name].includes(term);
   const req = (name, label) => (rel(name) ? readNumber(key, name, label) : 0);
-  const opt = (name, label) => (rel(name) && $(key, name).value.trim() !== "" ? readNumber(key, name, label) : 0);
 
   const prepay = readPercent(key, "prepay_ratio", "预付款比例");
   if (prepay < 0 || prepay > 1) throw new Error("预付款比例必须在 0 到 100% 之间");
@@ -788,7 +784,6 @@ function readFeeContext(key, term, taxCtx) {
 
   const ctx = {
     chinaPerCab: req("china_export_fee_per_cabinet_rmb", "中国端费用/柜"),
-    fobExtraPerCab: opt("fob_extra_fee_per_cabinet_rmb", "FOB附加费用/柜"),
     oceanPerCabUsd: req("ocean_freight_per_cabinet_usd", "海运费/柜（USD）"),
     destPerCabEur: destOn(key) ? readNumber(key, "destination_fee_per_cabinet_eur", "目的港基础费用/柜") : 0,
     ddpExtraPerCabEur: destOn(key) ? readNumber(key, "ddp_extra_per_cabinet_eur", "目的地附加费用/柜") : 0,
@@ -820,9 +815,9 @@ function termFees(ctx, term, cabinets, rate) {
   if (term === "FCA") {
     chinaExportFee = ctx.chinaPerCab * cabinets;
   } else if (term === "FOB") {
-    chinaExportFee = (ctx.chinaPerCab + ctx.fobExtraPerCab) * cabinets;
+    chinaExportFee = ctx.chinaPerCab * cabinets;
   } else if (term === "CIF" || term === "DDP") {
-    chinaExportFee = (ctx.chinaPerCab + ctx.fobExtraPerCab) * cabinets;
+    chinaExportFee = ctx.chinaPerCab * cabinets;
     oceanFreightFixed = (ctx.eurUsd > 0 ? ctx.oceanPerCabUsd / ctx.eurUsd * rate : ctx.oceanPerCabUsd * ctx.usdRate) * cabinets;   // 美元海运费 → 人民币
   }
   // 目的地费用（EUR/柜）：所有贸易条款通用，选了“是”才不为 0
