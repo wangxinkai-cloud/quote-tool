@@ -272,13 +272,13 @@ const FEE_FIELDS = [
   ["ocean_freight_per_cabinet_usd", "海运费/柜（USD）"],
   ["eur_usd_rate", "EUR:USD 换算汇率（美元海运费折欧元；填了就不再用下面的美元汇率）"],
   ["usd_rate", "美元汇率（USD/CNY，海运费换算用；EUR:USD 留空时才用）"],
-  ["destination_fee_per_cabinet_eur", "目的港基础费用/柜（EUR，如清关入库）"],
-  ["ddp_extra_per_cabinet_eur", "目的地附加费用/柜（EUR，如送货、DDP 清关）"],
+  ["destination_fee_per_cabinet_eur", "欧洲清关入库费用/柜（EUR，含一个月仓储）"],
+  ["ddp_extra_per_cabinet_eur", "欧陆送货费/柜（EUR）"],
   ["credit_insurance_rate", "信用保险费率（按未预付部分）"],
   ["cargo_insurance_rate", "货运险费率（按货值 110%）"],
   ["annual_interest_rate", "资金年利率"],
-  ["capital_months", "资金占用月数"],
-  ["company_expense_rate", "公司费用率"],
+  ["capital_months", "资金占用月数（账期）"],
+  ["company_expense_rate", "公司费用率（表格里已关闭，填 0 即不计）"],
   ["other_fee_eur", "其他费用（EUR，整批货，没有可不填）"],
 ];
 
@@ -290,12 +290,12 @@ const BASE_FEES = {
   eur_usd_rate: "1.12",
   usd_rate: "",
   destination_fee_per_cabinet_eur: "1400",
-  ddp_extra_per_cabinet_eur: "2000",
+  ddp_extra_per_cabinet_eur: "1104",
   credit_insurance_rate: "0.0055",
   cargo_insurance_rate: "0.00015",
   annual_interest_rate: "0.027",
-  capital_months: "3",
-  company_expense_rate: "0.025",
+  capital_months: "5",
+  company_expense_rate: "0",
   other_fee_eur: "",
 };
 
@@ -321,10 +321,10 @@ const TAX_TERMS = ["FOB", "CIF", "DDP"];
 const TAX_FIELDS = [
   ["tax_eur", "税务局汇率（EUR，出运当月第一天中行中间价）"],
   ["tax_usd", "税务局汇率（USD）"],
-  ["lock_eur", "锁汇汇率（EUR）"],
+  ["lock_eur", "锁汇汇率（EUR，即表格“测算基准”汇率）"],
   ["lock_usd", "锁汇汇率（USD）"],
 ];
-const TAX_OUTPUT_IDS = ["fob_eur", "fob_usd", "output_vat", "after_tax_income"];
+const TAX_OUTPUT_IDS = ["fob_eur", "fob_usd", "output_vat", "input_vat", "net_vat", "after_tax_income"];
 
 const OUTPUTS = [
   ["数量（W）", "quantity_w"],
@@ -334,6 +334,8 @@ const OUTPUTS = [
   ["FOB价（EUR）", "fob_eur"],
   ["FOB价（USD）", "fob_usd"],
   ["销项税（RMB）", "output_vat"],
+  ["进项税（RMB）", "input_vat"],
+  ["销项 − 进项（RMB）", "net_vat"],
   ["税后收入（RMB）", "after_tax_income"],
   ["总成本（不含税）", "total_cost_excl_tax"],
   ["中国端费用（RMB）", "china_export_fee"],
@@ -377,15 +379,15 @@ const CARPORT_MODES = {
 };
 
 /* ============ 四个计算工具的配置 ============ */
-// qtyMode: "perCabinet" 数量 = 型号×片数×柜数（片数为每柜片数）；"total" 数量 = 型号×数量（柜数只影响按柜计的费用）
+// qtyMode: "total" 数量 = 型号×片数（片数是合计，对应表格的“数量/PCS”；柜数只影响按柜计的费用）；"perCabinet" 数量 = 型号×片数×柜数（片数为每柜片数，目前没有工具使用）
 // costDivisor: 成本含税时表格里按 ÷1.13 计入不含税成本
 const TOOLS = {
   pv: {
     name: "PV Module",
     modelLabel: "型号（W）", modelName: "型号",
-    countLabel: "片数（个）", countName: "片数",
+    countLabel: "片数（个，合计）", countName: "片数",
     costLabel: "成本（RMB/W）", costName: "成本",
-    qtyMode: "perCabinet", costDivisor: 1,
+    qtyMode: "total", costDivisor: 1,
     fees: { ...BASE_FEES },
     price: { title: "建议报价单价", unit: "EUR / W", kind: "perW" },
   },
@@ -427,9 +429,9 @@ const TOOLS = {
   srau: {
     name: "SRAU",
     modelLabel: "型号（W）", modelName: "型号",
-    countLabel: "片数（个）", countName: "片数",
+    countLabel: "片数（个，合计）", countName: "片数",
     costLabel: "成本（RMB/W）", costName: "成本",
-    qtyMode: "perCabinet", costDivisor: 1,
+    qtyMode: "total", costDivisor: 1,
     fees: { ...BASE_FEES },
     price: { title: "建议报价单价", unit: "EUR / W", kind: "perW" },
   },
@@ -835,8 +837,9 @@ function termFees(ctx, term, cabinets, rate) {
 //     FOB价（EUR）   = 外币收入 − 运费 − 目的地费用 − 保费（CIF、DDP）；FOB 就是外币收入
 //     销项税（RMB）  = FOB价（EUR）× 税务局汇率（EUR）÷ 1.13 × 13%     （表格里经 USD 折算，税务局 USD 汇率相消）
 //     税后收入（RMB）= 外币收入 × 锁汇汇率 − 销项税
-//     毛利润         = 税后收入 − 不含税成本 − 费用（不含公司费用）；毛利率 = 毛利润 ÷ 税后收入
-//     净利润         = 毛利润 − 公司费用；净利率 = 净利润 ÷ 税前收入
+//     毛利润         = 税后收入 − 不含税成本 − 费用（不含公司费用）；毛利率 = 毛利润 ÷ 外币收入（税前，表格 AC 列）
+//     净利润         = 毛利润 − 公司费用；净利率 = 净利润 ÷ 外币收入
+//     进项税         = 不含税成本 × 13%；销项 − 进项 = 销项税 − 进项税（表格 Z 列）
 //   不勾选：毛利润 = 收入 − 成本 − 费用（不含公司费用），净利润 = 毛利润 − 公司费用，利润率的分母都是收入（表格“原测算”）
 function evaluateOrder({ cost, cabinets, quantityW, rate, term, ctx, incomeEur, tax = null, feeShare = 1 }) {
   const f = termFees(ctx, term, cabinets, rate);
@@ -861,7 +864,8 @@ function evaluateOrder({ cost, cabinets, quantityW, rate, term, ctx, incomeEur, 
     if (term === "CIF" || term === "DDP") fobEur = incomeEur - (ocean + dest) / rate - insuranceK * incomeEur;
     const outputVat = n * fobEur;
     incomeForGross = L - outputVat;
-    taxInfo = { fobEur, fobUsd: tax.taxUsd ? fobEur * tax.taxEur / tax.taxUsd : null, outputVat, afterTaxIncome: incomeForGross };
+    const inputVat = cost * 0.13;
+    taxInfo = { fobEur, fobUsd: tax.taxUsd ? fobEur * tax.taxEur / tax.taxUsd : null, outputVat, afterTaxIncome: incomeForGross, inputVat, netVat: outputVat - inputVat };
   }
   const grossProfit = incomeForGross - cost - feesExCompany;
   const netProfit = grossProfit - companyExpense;
@@ -870,7 +874,7 @@ function evaluateOrder({ cost, cabinets, quantityW, rate, term, ctx, incomeEur, 
     totalExpense, grossProfit, netProfit, totalIncomeRmb: L,
     foreignIncomeEur: incomeEur,
     unitPriceEurPerW: incomeEur / quantityW,
-    grossMargin: grossProfit / incomeForGross,
+    grossMargin: grossProfit / L,
     netMargin: netProfit / L,
     tax: taxInfo,
   };
@@ -907,6 +911,8 @@ function putMainOutputs(key, r, quantityW, rate) {
   put("fob_eur", r.tax ? fmtNum(r.tax.fobEur, 2) : "");
   put("fob_usd", r.tax && r.tax.fobUsd !== null ? fmtNum(r.tax.fobUsd, 2) : "");
   put("output_vat", r.tax ? fmtNum(r.tax.outputVat, 2) : "");
+  put("input_vat", r.tax ? fmtNum(r.tax.inputVat, 2) : "");
+  put("net_vat", r.tax ? fmtNum(r.tax.netVat, 2) : "");
   put("after_tax_income", r.tax ? fmtNum(r.tax.afterTaxIncome, 2) : "");
   put("total_cost_excl_tax", fmtNum(r.totalCost, 2));
   put("china_export_fee", fmtNum(r.china, 2));
@@ -1433,8 +1439,9 @@ function applyPreset(key, value) {
   if (key === "pv" || key === "srau") {
     const p = (key === "pv" ? MODULE_PRESETS : SRAU_PRESETS)[Number(value)];
     if (!p) return;
+    const cabinets = Number(normalizeNumberString($(key, "cabinets").value.trim()));
     $(key, "model_w").value = p.w;
-    $(key, "pieces").value = p.pcs;
+    $(key, "pieces").value = p.pcs * (cabinets > 0 ? cabinets : 1);   // 预设里是每柜片数，片数框里填合计
     $(key, "cost_rmb").value = key === "pv" && taxActive(key) ? p.raw : p.cost;
   } else if (key === "carport") {
     if (value.startsWith("c:")) {
@@ -1488,6 +1495,11 @@ function init() {
       refreshState();
     });
     $(key, "tax_on").addEventListener("change", refreshState);
+    // 选了型号预设后再改柜数：片数跟着按每柜片数 × 柜数重新计算
+    $(key, "cabinets").addEventListener("input", () => {
+      const p = $(key, "preset");
+      if ((key === "pv" || key === "srau") && p && p.value !== "") applyPreset(key, p.value);
+    });
     $(key, "eur_usd_rate").addEventListener("input", () => updateLocks(key));
     document.querySelectorAll(`input[name="${key}__dest"]`).forEach((r) => r.addEventListener("change", () => {
       destAuto[key] = false;    // 用户自己选了，之后不再自动改
